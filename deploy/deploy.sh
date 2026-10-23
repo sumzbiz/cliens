@@ -42,7 +42,9 @@ say "Deploying to $INSTANCE_ID in $REGION"
 # which is far larger than the output it produces.
 say "Building the frontend"
 if command -v npm.cmd >/dev/null 2>&1; then
-  npm.cmd run build --workspace frontend
+  # Git Bash treats `.cmd` files as shell scripts when invoked directly. Let
+  # PowerShell resolve and run the Windows npm command instead.
+  powershell.exe -NoProfile -Command "npm.cmd run build --workspace frontend"
 else
   npm run build --workspace frontend
 fi
