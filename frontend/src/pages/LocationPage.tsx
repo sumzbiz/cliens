@@ -33,7 +33,7 @@ import {
 } from '@/lib/geo';
 import { useSession } from '@/state/session-context';
 import type { BasemapCapabilities } from '@/types/api';
-import { useLanguage } from '@/state/language';
+import { useLanguage } from '@/state/language-context';
 
 /** Where saving the drawn boundary to the database currently stands. */
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -465,7 +465,7 @@ export default function LocationPage() {
                     </p>
                     <p className="mt-0.5 text-xs text-ink-3">
                       {siteBounds === null ? '—' : formatSpan(siteBounds)} across ·{' '}
-                      {language === 'ta' ? `${area.length} மூலைகள்` : `${area.length} corners`}
+                      {language === 'ta' ? `${String(area.length)} மூலைகள்` : `${String(area.length)} corners`}
                     </p>
                     <SaveStatusBadge status={saveStatus} error={saveError} />
                   </>

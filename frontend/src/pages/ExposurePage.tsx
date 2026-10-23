@@ -21,7 +21,7 @@ import { useVoice } from '@/state/voice-context';
 import { Button, ChoiceCard } from '@/components/ui';
 import { useSession } from '@/state/session-context';
 import { ELEMENT_SITUATIONS } from '@/types/api';
-import { useLanguage } from '@/state/language';
+import { useLanguage } from '@/state/language-context';
 
 /** Consequence text, so a choice is made knowingly rather than guessed at. */
 const CONSEQUENCE: Record<string, string> = {

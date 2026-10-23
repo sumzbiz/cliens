@@ -19,7 +19,7 @@
 import { motion, useReducedMotion } from 'motion/react';
 
 import type { ScoredSelection } from '@/types/api';
-import { useLanguage } from '@/state/language';
+import { useLanguage } from '@/state/language-context';
 
 /**
  * Top of the axis, in years.
@@ -98,7 +98,7 @@ function LifeBar({
       </div>
 
       <p className="tabular mt-1 text-[11px] text-ink-3">
-        {language === 'ta' ? `எதிர்பார்க்கப்படும் காலம்: ${Math.round(life.lower_years)}–${Math.round(life.upper_years)} ஆண்டுகள்` : `likely ${Math.round(life.lower_years)}–${Math.round(life.upper_years)} years`}
+        {language === 'ta' ? `எதிர்பார்க்கப்படும் காலம்: ${String(Math.round(life.lower_years))}–${String(Math.round(life.upper_years))} ஆண்டுகள்` : `likely ${String(Math.round(life.lower_years))}–${String(Math.round(life.upper_years))} years`}
       </p>
     </div>
   );
@@ -124,7 +124,7 @@ export function ServiceLifeComparison({
           {language === 'ta' ? 'எவ்வளவு காலம் நீடிக்கும்' : 'How long it should last'}
         </h2>
         <p className="tabular text-xs text-ink-3">
-          {language === 'ta' ? `விதிமுறை வடிவமைப்பு ஆயுள்: ${Math.round(baseline)} ஆண்டுகள்` : `code design life ${Math.round(baseline)} years`}
+          {language === 'ta' ? `விதிமுறை வடிவமைப்பு ஆயுள்: ${String(Math.round(baseline))} ஆண்டுகள்` : `code design life ${String(Math.round(baseline))} years`}
         </p>
       </div>
 

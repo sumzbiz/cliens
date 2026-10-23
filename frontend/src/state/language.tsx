@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 
-export type Language = 'en' | 'ta';
+import { LanguageContext, type Language, type LanguageContextValue } from './language-context';
 
 const TA: Record<string, string> = {
   Location: 'இடம்', Exposure: 'சூழல் தாக்கம்', Approach: 'முறை', Materials: 'கட்டுமானப் பொருட்கள்', Score: 'மதிப்பீடு',
@@ -43,12 +43,7 @@ const TA: Record<string, string> = {
   'Choose language': 'மொழியைத் தேர்ந்தெடுக்கவும்', English: 'ஆங்கிலம்', Tamil: 'தமிழ்',
 };
 
-type LanguageContextValue = { language: Language; setLanguage: (language: Language) => void; t: (english: string) => string };
-const LanguageContext = createContext<LanguageContextValue>({
-  language: 'en', setLanguage: () => undefined, t: (english) => english,
-});
-
-export function LanguageProvider({ children }: { children: ReactNode }) {
+function LanguageProvider({ children }: { children: ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() =>
     window.localStorage.getItem('climate-lien-language') === 'ta' ? 'ta' : 'en'
   );
@@ -69,6 +64,4 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 }
 
-export function useLanguage() {
-  return useContext(LanguageContext);
-}
+export { LanguageProvider };

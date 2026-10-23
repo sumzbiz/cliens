@@ -14,7 +14,7 @@ import { buildNarration, TA } from '@/lib/narration.ta';
 import { useVoice } from '@/state/voice-context';
 import { Button } from '@/components/ui';
 import { useSession } from '@/state/session-context';
-import { useLanguage } from '@/state/language';
+import { useLanguage } from '@/state/language-context';
 
 export default function ModePage() {
   const { spec, update } = useSession();

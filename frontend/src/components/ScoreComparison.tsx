@@ -13,7 +13,7 @@ import { motion, useReducedMotion } from 'motion/react';
 
 import { bandFillClass, bandTextClass, bandVerdict, formatDelta, formatScore } from '@/lib/format';
 import type { ScoredSelection } from '@/types/api';
-import { useLanguage } from '@/state/language';
+import { useLanguage } from '@/state/language-context';
 
 const TRACK_HEIGHT = 220;
 

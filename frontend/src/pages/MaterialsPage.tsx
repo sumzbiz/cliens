@@ -16,7 +16,7 @@ import { useVoice } from '@/state/voice-context';
 import { Button, CONTROL, ChoiceCard, Field, Panel, Popup } from '@/components/ui';
 import { useSession } from '@/state/session-context';
 import { CEMENT_TYPES, CONCRETE_GRADES, WALLING_MATERIALS } from '@/types/api';
-import { useLanguage } from '@/state/language';
+import { useLanguage } from '@/state/language-context';
 
 /** Which popup is open, if any. */
 type Editor = 'grade' | 'cement' | 'ratio' | 'walling' | null;

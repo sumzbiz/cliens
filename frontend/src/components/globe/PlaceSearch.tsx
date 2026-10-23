@@ -13,7 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CONTROL, SPRING } from '@/components/ui';
 import { ApiError, apiClient } from '@/lib/api-client';
 import type { GeocodeMatch } from '@/types/api';
-import { useLanguage } from '@/state/language';
+import { useLanguage } from '@/state/language-context';
 
 /**
  * Delay before a keystroke becomes a request.

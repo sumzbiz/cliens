@@ -8,7 +8,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 
 import { useSession } from '@/state/session-context';
 import { useVoice } from '@/state/voice-context';
-import { useLanguage } from '@/state/language';
+import { useLanguage } from '@/state/language-context';
 
 /** The flow, in order. The rail and the guard both read from this one list. */
 export const STEPS = [
@@ -106,7 +106,9 @@ export function StepRail() {
         <select
           aria-label={t('Choose language')}
           value={language}
-          onChange={(event) => setLanguage(event.target.value === 'ta' ? 'ta' : 'en')}
+          onChange={(event) => {
+            setLanguage(event.target.value === 'ta' ? 'ta' : 'en');
+          }}
           className="rounded-full border border-white/12 bg-void/80 px-2.5 py-1 text-ink-1 outline-none focus:border-atmos"
         >
           <option value="en">{t('English')}</option>

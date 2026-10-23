@@ -22,7 +22,7 @@ import { formatParameter, formatPercent } from '@/lib/format';
 import { boundsOf } from '@/lib/geo';
 import { useSession, type SiteSpecification } from '@/state/session-context';
 import type { MaterialSelectionInput, ScoreResponse } from '@/types/api';
-import { useLanguage } from '@/state/language';
+import { useLanguage } from '@/state/language-context';
 
 const EXPOSURE_TA: Record<string, string> = {
   Mild: 'குறைந்த', Moderate: 'மிதமான', Severe: 'கடுமையான', 'Very severe': 'மிகக் கடுமையான', VerySevere: 'மிகக் கடுமையான', Extreme: 'அதீத',

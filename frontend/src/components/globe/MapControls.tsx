@@ -12,7 +12,7 @@
  * drag; two buttons show which mode is active without being interrogated.
  */
 import type { ReactNode } from 'react';
-import { useLanguage } from '@/state/language';
+import { useLanguage } from '@/state/language-context';
 
 export type MapMode = 'pan' | 'draw';
 
