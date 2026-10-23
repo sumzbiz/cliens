@@ -144,10 +144,10 @@ class TestExposureClassification:
         result = classify_exposure(climate(cycles=120.0), "exposed")
         assert result.exposure.id == "severe"
 
-    def test_high_humidity_escalates_even_when_sheltered(self) -> None:
-        """Condensation-driven corrosion does not require direct rain."""
+    def test_high_humidity_alone_does_not_escalate_sheltered_element(self) -> None:
+        """Mean humidity affects walling suitability, not exposure class by itself."""
         result = classify_exposure(climate(humidity=85.0), "sheltered")
-        assert result.exposure.severity >= 3
+        assert result.exposure.id == "moderate"
 
     def test_tidal_situation_is_extreme_regardless_of_climate(self) -> None:
         """A benign-looking climate must never downgrade an inherently harsh site."""
