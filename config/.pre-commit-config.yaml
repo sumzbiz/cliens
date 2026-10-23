@@ -1,0 +1,77 @@
+# Pre-commit hooks. Install once after setup:
+#
+#   npm run hooks:install
+#
+# This file lives in config/ rather than the repository root, so every pre-commit
+# invocation needs `--config config/.pre-commit-config.yaml`. The npm scripts
+# `hooks:install` and `hooks:run` pass it; a bare `pre-commit run` will not find
+# this file. Hook `entry` commands and the `files:` patterns below are unaffected —
+# both still resolve from the repository root, which is where pre-commit runs them.
+#
+# Hooks use `repo: local` with `language: system` because the Python tools must run
+# from the project virtualenv (so they see the same dependency versions and the same
+# pyproject.toml config as CI), not from an isolated environment pre-commit builds
+# for itself. `node scripts/py.mjs` resolves that virtualenv on any platform.
+
+default_language_version:
+  node: system
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        # The damage calibration artifact is ~6 MB, so the limit must clear it.
+        # Anything appreciably larger than the current artifacts is a mistake.
+        args: ["--maxkb=10000"]
+      - id: detect-private-key
+      - id: no-commit-to-branch
+        args: ["--branch", "main"]
+
+  - repo: local
+    hooks:
+      - id: black
+        name: black (backend formatting)
+        entry: node scripts/py.mjs -m black
+        language: system
+        types: [python]
+        files: ^backend/
+        pass_filenames: true
+
+      - id: ruff
+        name: ruff (backend lint)
+        entry: node scripts/py.mjs -m ruff check --fix
+        language: system
+        types: [python]
+        files: ^backend/
+        pass_filenames: true
+
+      - id: mypy
+        name: mypy (backend types, strict)
+        entry: node scripts/py.mjs -m mypy app
+        language: system
+        types: [python]
+        files: ^backend/
+        # mypy needs the whole package to resolve imports, so it is run once over
+        # `app` rather than over the changed files.
+        pass_filenames: false
+
+      - id: eslint
+        name: eslint (frontend lint)
+        entry: npm run lint:frontend --silent
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      - id: tsc
+        name: tsc (frontend types, strict)
+        entry: npm run typecheck:frontend --silent
+        language: system
+        files: ^frontend/.*\.(ts|tsx)$
+        pass_filenames: false

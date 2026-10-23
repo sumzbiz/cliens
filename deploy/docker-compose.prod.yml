@@ -1,0 +1,92 @@
+# Production stack for a single host.
+#
+# Three containers: PostGIS, the API, and Caddy in front serving the built
+# frontend and proxying /api to the backend. Caddy also terminates TLS, which is
+# why there is no separate load balancer — on one host an ALB would cost more
+# than the host.
+#
+# Everything is same-origin: the browser only ever talks to Caddy, so the API is
+# reached at /api on the same domain. That is deliberate. The app's CORS config
+# rejects a wildcard origin in production, and same-origin means there is no
+# cross-origin request to configure in the first place.
+
+name: building-quality-score
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    # No published ports. The database is reachable only on the private compose
+    # network, so it is never exposed to the internet even though it runs on a
+    # host that is.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  api:
+    image: ${API_IMAGE:-bqs-backend:latest}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ENVIRONMENT: production
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Both are required. The app connects with asyncpg, but Alembic is
+      # synchronous and reads its own `database_url_sync` setting — which has its
+      # own default pointing at the local dev database. Setting only the async one
+      # left migrations silently trying to reach localhost:5433 inside the
+      # container, where nothing listens.
+      DATABASE_URL_SYNC: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Same-origin through Caddy, but the config still requires a non-empty,
+      # non-wildcard origin list in production, so it is stated explicitly.
+      CORS_ORIGINS: ${PUBLIC_ORIGIN}
+      # Caddy is the only thing that talks to this container, and it sits on the
+      # compose network. Trusting its forwarded headers is what makes the per-IP
+      # rate limiter see real client addresses instead of the proxy's.
+      FORWARDED_ALLOW_IPS: "*"
+      # One worker. The tile cache, the voice cache and the Sarvam key-failover
+      # state all live in process memory, so a second worker would keep its own
+      # copy and rediscover an exhausted key independently. Scaling out needs a
+      # shared cache first — see deploy/README.md.
+      WEB_CONCURRENCY: "1"
+      SARVAM_API_KEY_PRIMARY: ${SARVAM_API_KEY_PRIMARY:-}
+      SARVAM_API_KEY_SECONDARY: ${SARVAM_API_KEY_SECONDARY:-}
+      SARVAM_TTS_SPEAKER: ${SARVAM_TTS_SPEAKER:-kavitha}
+      SARVAM_TTS_LANGUAGE: ${SARVAM_TTS_LANGUAGE:-ta-IN}
+      MAPBOX_ACCESS_TOKEN: ${MAPBOX_ACCESS_TOKEN:-}
+    expose:
+      - "8000"
+
+  web:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The built frontend, uploaded by the deploy script. Served straight from
+      # disk rather than from a container layer so a frontend-only change is a
+      # file copy, not an image rebuild.
+      - ./site:/srv/site:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

@@ -1,0 +1,83 @@
+# Secrets â€” never commit. See .env.example for the required keys.
+.env
+.env.*
+!.env.example
+*-service-account*.json
+credentials/
+# Google service-account keys are downloaded under their own project name, e.g.
+# `earth-504811-6cc61550fea6.json`, which the pattern above does not match. This
+# catches any file whose name is a GCP project id followed by a key fingerprint.
+[a-z]*-[0-9]*-[0-9a-f]*.json
+gcp-key*.json
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node
+node_modules/
+dist/
+.vite/
+coverage/
+*.local
+
+# Generated from the backend OpenAPI spec by `npm run generate:types`.
+# Deliberately COMMITTED rather than ignored: generating it requires a running
+# backend, so ignoring it would leave a fresh clone unable to typecheck or build
+# the frontend. Never hand-edit it â€” regenerate instead.
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/settings.json
+
+# ---------------------------------------------------------------------------
+# Large data artifacts
+#
+# The GRIB record is 129 MB â€” past GitHub's 100 MB hard limit â€” and everything
+# below it is derived from it by `ml/grib_to_csv.py`, so a clone regenerates them.
+# What the application actually reads at run time is
+# `backend/app/repositories/data/district_climate_profiles.json`, which is small
+# and IS committed, so a fresh clone can score without the source file present.
+# ---------------------------------------------------------------------------
+*.grib
+*.grib.*.idx
+ml/data/*.csv
+
+# ---------------------------------------------------------------------------
+# Carried over from the upstream repository's .gitignore on merge.
+# ---------------------------------------------------------------------------
+.env.local
+build/
+*.pyc
+
+# ---------------------------------------------------------------------------
+# Terraform
+#
+# tfvars holds the database password and the API keys in plaintext, and state
+# holds every value Terraform has ever written — including those secrets, even
+# though they are marked sensitive in the plan output.
+# ---------------------------------------------------------------------------
+*.tfvars
+!*.tfvars.example
+*.tfstate
+*.tfstate.*
+# Saved plan files are zip archives containing tfstate and the resolved values of
+# every variable — including the ones marked sensitive. Verified: a plan for this
+# stack contains the database password and the Sarvam key in readable form.
+tfplan
+*.tfplan
+.terraform/
+.terraform.lock.hcl
+crash.log

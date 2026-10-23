@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- maximum-scale/user-scalable: the page is a full-viewport map with its own
+         zoom. Letting the browser scale the document as well means a pinch grows
+         the search bar and panels while the map zooms underneath them. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Building Quality Score</title>
+    <meta
+      name="description"
+      content="Score a building specification against IS 456 using measured climate for your district, and see what to specify instead."
+    />
+    <!-- Sets the browser's own UI (form controls, scrollbars) to match the dark
+         interface. Without it the native widgets render light on a dark page. -->
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#0b0e17" />
+
+    <!-- Space Grotesk: geometric, technical, reads cleanly in the uppercase
+         tracked labels used throughout ("STEP 1 OF 5", district names) and in
+         the large tabular scores. Previously the app only ever specified 'Inter'
+         without loading it, so it silently rendered in whatever the OS defaulted
+         to — this is the first webfont the app actually fetches. `display=swap`
+         means text paints immediately in the fallback stack and swaps once the
+         font arrives, rather than staying invisible while it loads. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

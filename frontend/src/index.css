@@ -1,0 +1,203 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Design tokens.
+
+   Dark by default, and not for fashion: the globe is the first thing you see and
+   it is a lit sphere in space. A light chrome around it would fight the imagery
+   and force a hard edge at the canvas boundary. Everything here is built so the
+   interface can sit *on* the globe rather than beside it.
+
+   The palette is drawn from the subject. Deep slate is night-side earth. The cyan
+   is atmospheric scatter — the same colour as the globe's rim light, so selection
+   reads as "the planet is responding to you". A single ochre is reserved for one
+   job: the score gain. Nothing else may use it, so the eye goes to the number that
+   matters.
+   --------------------------------------------------------------------------- */
+@theme {
+  /* Surfaces, darkest to lightest. */
+  --color-void: oklch(0.14 0.018 265);
+  --color-abyss: oklch(0.18 0.022 265);
+  --color-slate-1: oklch(0.24 0.024 265);
+  --color-slate-2: oklch(0.31 0.026 265);
+  --color-slate-3: oklch(0.42 0.024 265);
+
+  /* Text, brightest to dimmest. */
+  --color-ink-1: oklch(0.97 0.005 265);
+  --color-ink-2: oklch(0.82 0.012 265);
+  --color-ink-3: oklch(0.64 0.016 265);
+
+  /* Atmosphere. The accent, matched to the globe's rim light. */
+  --color-atmos: oklch(0.78 0.13 220);
+  --color-atmos-deep: oklch(0.58 0.15 240);
+
+  /* Reserved for the score delta. Used nowhere else. */
+  --color-signal: oklch(0.78 0.15 75);
+
+  /* Score bands. Sequential, not a red/green traffic light — the score is a
+     continuum and the bands should read that way. Lifted for dark ground. */
+  --color-band-poor: oklch(0.65 0.18 25);
+  --color-band-marginal: oklch(0.74 0.15 55);
+  --color-band-adequate: oklch(0.80 0.12 95);
+  --color-band-good: oklch(0.75 0.14 158);
+  --color-band-excellent: oklch(0.80 0.13 185);
+
+  /* Space Grotesk, loaded in index.html. The fallback stack still matters even
+     though it should always load: it is what a blocked font request or a
+     first, pre-swap paint actually renders in. */
+  --font-sans:
+    'Space Grotesk', 'Inter var', 'Inter', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+  /* Numbers are the product. They get their own face so a score never reads as
+     prose, and so columns of figures align without extra work. */
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', 'Consolas', monospace;
+
+  --ease-spring: linear(
+    0,
+    0.006,
+    0.025 2.8%,
+    0.101 6.1%,
+    0.539 18.9%,
+    0.721 25.3%,
+    0.849 31.5%,
+    0.937 38.1%,
+    0.968 41.8%,
+    0.991 45.7%,
+    1.006 50.1%,
+    1.015 60.2%,
+    1.006 80.2%,
+    1
+  );
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-void);
+  color: var(--color-ink-1);
+  font-family: var(--font-sans);
+  /* The globe fills the viewport; the page must never bounce behind it. */
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Chrome that floats directly on the map, with no panel behind it.
+
+   A backdrop would crop the imagery the page exists to show, but satellite tiles
+   are arbitrary — a plot can sit on dark scrub or a white rooftop — so no fixed
+   text colour is safe on its own. A soft dark shadow costs no pixels and keeps
+   light text readable over both. */
+.map-chrome {
+  text-shadow:
+    0 1px 3px oklch(0 0 0 / 0.85),
+    0 0 12px oklch(0 0 0 / 0.55);
+}
+
+/* Scores are compared column to column, so their digits must line up. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-mono);
+}
+
+/* ---------------------------------------------------------------------------
+   Glass.
+
+   One class, used everywhere a panel floats over the globe. Defined once here
+   rather than as a repeated Tailwind string, per the DRY rule. The inset highlight
+   is what sells it — without a lit top edge, blur alone reads as "washed out"
+   rather than "pane of glass".
+   --------------------------------------------------------------------------- */
+.glass {
+  background: color-mix(in oklab, var(--color-abyss) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border: 1px solid color-mix(in oklab, var(--color-ink-1) 10%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, var(--color-ink-1) 12%, transparent),
+    0 24px 60px -20px oklch(0 0 0 / 0.7);
+}
+
+/* Backdrop-filter is expensive and, on a few Android GPUs, silently unsupported.
+   Falling back to an opaque panel keeps the text legible instead of leaving it
+   floating on the globe. */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass {
+    background: var(--color-abyss);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Dimensional buttons.
+
+   Depth comes from a hard bottom edge, the way a physical key does, not from a
+   drop shadow. Pressing removes the edge and moves the cap down by exactly the
+   edge height, so the travel is real rather than a scale trick.
+   --------------------------------------------------------------------------- */
+.btn-3d {
+  --edge: 3px;
+  position: relative;
+  border-radius: 0.625rem;
+  transform: translateY(0);
+  transition:
+    transform 140ms var(--ease-spring),
+    box-shadow 140ms ease,
+    filter 140ms ease;
+}
+.btn-3d:not(:disabled):hover {
+  filter: brightness(1.08);
+}
+.btn-3d:not(:disabled):active {
+  transform: translateY(var(--edge));
+  box-shadow: none !important;
+}
+.btn-3d:disabled {
+  filter: grayscale(0.7) brightness(0.7);
+  cursor: not-allowed;
+}
+
+/* Slow drift behind the content on non-globe pages, so a static page still feels
+   like it belongs to the same product as the globe. */
+@keyframes aurora {
+  0%,
+  100% {
+    transform: translate3d(-6%, -4%, 0) scale(1.1);
+  }
+  50% {
+    transform: translate3d(6%, 4%, 0) scale(1.25);
+  }
+}
+.aurora {
+  animation: aurora 26s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Restraint by default: honour the user's motion preference rather than
+   animating regardless. Motion's own springs are disabled in code; this covers
+   everything CSS-driven. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Focus must be visible without hunting for it, and on dark ground that means the
+   accent, not the browser default. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-atmos);
+  outline-offset: 3px;
+  border-radius: 0.375rem;
+}
+
+/* Native scrollbars are light-themed and break the illusion inside glass panels. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-slate-2) transparent;
+}

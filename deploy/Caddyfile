@@ -1,0 +1,61 @@
+# Caddy: TLS, the static frontend, and the API on one origin.
+#
+# PUBLIC_HOST is either a domain or, with no domain yet, the literal `:80`.
+# Given a domain, Caddy obtains and renews a Let's Encrypt certificate on its
+# own — which is the main reason it is here rather than nginx.
+
+{$PUBLIC_HOST} {
+	encode zstd gzip
+
+	# The API. Everything under /api goes to the backend untouched, including the
+	# tile and voice endpoints, which stream binary responses.
+	handle /api/* {
+		reverse_proxy api:8000 {
+			# The backend runs uvicorn with --proxy-headers, so these are what let
+			# the per-IP rate limiter see the real client rather than counting every
+			# request against Caddy's address.
+			header_up X-Real-IP {remote_host}
+			header_up X-Forwarded-For {remote_host}
+			header_up X-Forwarded-Proto {scheme}
+
+			# Voice synthesis can take several seconds for a long narration, and the
+			# tile compositor waits on two upstream fetches. The default read
+			# timeout would cut both off mid-response.
+			transport http {
+				response_header_timeout 60s
+				read_timeout 90s
+			}
+		}
+	}
+
+	# Everything else is the single-page app.
+	handle {
+		root * /srv/site
+
+		# Hashed asset filenames change whenever their contents do, so they can be
+		# cached indefinitely. index.html must not be, or a deploy would never
+		# reach a browser that already has it.
+		@immutable path /assets/*
+		header @immutable Cache-Control "public, max-age=31536000, immutable"
+		header /index.html Cache-Control "no-cache"
+
+		# The five routes are client-side, so a deep link or a refresh on /score
+		# has no file behind it and must fall back to the app shell.
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		# The globe and the map need WebGL and remote imagery, so a restrictive CSP
+		# would break them; these are the headers that cost nothing to set.
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		-Server
+	}
+
+	log {
+		output stdout
+		format console
+	}
+}
