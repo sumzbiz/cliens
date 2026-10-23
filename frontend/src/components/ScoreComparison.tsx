@@ -56,7 +56,7 @@ function Column({
       <p className={`tabular mt-4 text-5xl font-semibold ${bandTextClass(scored.band)}`}>
         {formatScore(scored.score)}
       </p>
-      <p className="text-[11px] uppercase tracking-[0.14em] text-ink-3">{scored.band}</p>
+      <p className="text-[11px] uppercase tracking-[0.14em] text-ink-3">{scored.compliant ? scored.band : `${scored.band} ? non-compliant`}</p>
       <p
         className={`mt-1.5 text-center text-sm ${emphasis ? 'font-semibold text-ink-1' : 'text-ink-2'}`}
       >
@@ -77,6 +77,15 @@ export function ScoreComparison({
   improvement: number;
   evaluatedOwnMaterials: boolean;
 }) {
+  const keepingProposed =
+    evaluatedOwnMaterials &&
+    proposed.concrete.grade === recommended.concrete.grade &&
+    proposed.concrete.cement_content_kg_m3 === recommended.concrete.cement_content_kg_m3 &&
+    proposed.concrete.water_cement_ratio === recommended.concrete.water_cement_ratio &&
+    proposed.concrete.cement_type === recommended.concrete.cement_type &&
+    proposed.concrete.admixtures.join('|') === recommended.concrete.admixtures.join('|') &&
+    proposed.walling_material_id === recommended.walling_material_id;
+
   return (
     <section aria-labelledby="comparison-heading" className="glass rounded-2xl p-6 sm:p-8">
       <h2 id="comparison-heading" className="sr-only">
@@ -100,17 +109,24 @@ export function ScoreComparison({
 
         <Column
           scored={recommended}
-          caption="What we'd specify"
+          caption={keepingProposed ? 'Keep your specification' : "What we'd specify"}
           emphasis={!evaluatedOwnMaterials}
           delay={0.25}
         />
       </div>
 
       <p className="mt-7 border-t border-white/10 pt-5 text-sm leading-relaxed text-ink-2">
-        {bandVerdict(proposed.band)}{' '}
-        {improvement > 0
-          ? `Changing to the specification on the right would gain you ${formatDelta(improvement)} points.`
-          : 'The specification on the right would not improve on it.'}
+        {keepingProposed
+          ? 'Your specification already meets the code and scores higher than our standard recommendation. We would keep it as specified.'
+          : `${
+              proposed.compliant
+                ? bandVerdict(proposed.band)
+                : 'Your specification misses one or more required code checks.'
+            } ${
+              improvement > 0
+                ? `Changing to the specification on the right would gain you ${formatDelta(improvement)} points.`
+                : 'The specification on the right would not improve on it.'
+            }`}
       </p>
     </section>
   );

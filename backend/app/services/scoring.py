@@ -63,8 +63,10 @@ class ScoredSelection:
 
     @property
     def score(self) -> float:
-        """The headline figure: the model's smoothed value."""
-        return self.model_score
+        """The model estimate, gated by the deterministic code checks."""
+        if self.assessment.compliant:
+            return max(self.model_score, constants.NONCOMPLIANT_SCORE_CAP + 0.1)
+        return min(self.model_score, constants.NONCOMPLIANT_SCORE_CAP)
 
     @property
     def band(self) -> str:
@@ -220,6 +222,16 @@ class QualityScoringService:
         baseline = proposed if proposed is not None else self._conventional_baseline(situation)
         scored_proposed = self._score(summary, baseline)
         scored_recommended = self._score(summary, self.recommend(summary, situation))
+
+        # Do not present a generic minimum-plus-margin specification as an upgrade
+        # when the user's own selection already complies and scores higher. In that
+        # case, keeping the proposed selection is the recommendation.
+        if (
+            proposed is not None
+            and scored_proposed.assessment.compliant
+            and scored_proposed.score > scored_recommended.score
+        ):
+            scored_recommended = scored_proposed
 
         logger.info(
             "quality_score_compared",

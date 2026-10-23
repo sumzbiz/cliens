@@ -198,7 +198,8 @@ def quality_score_label(assessment: RulesAssessment) -> float:
         followed = len(assessment.followed_recommendation_ids)
         score += (followed / applicable) * constants.SCORE_RECOMMENDATION_WEIGHT
 
-    return round(calculations.clamp(score, 0.0, 100.0), 1)
+    upper_bound = 100.0 if assessment.compliant else constants.NONCOMPLIANT_SCORE_CAP
+    return round(calculations.clamp(score, 0.0, upper_bound), 1)
 
 
 def climate_conditions(climate: ClimateSummary) -> set[str]:

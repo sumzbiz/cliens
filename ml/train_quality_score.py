@@ -45,6 +45,9 @@ from app.services.rules_engine import (
 
 MODEL_NAME = "quality_score"
 
+# More boosting stages increase the serialized model capacity.
+QUALITY_SCORE_N_ESTIMATORS = 862
+
 # Positional order is part of the artifact's contract; inference rebuilds the
 # matrix from this list so a reordering cannot silently mis-predict.
 FEATURE_COLUMNS = [
@@ -59,6 +62,9 @@ FEATURE_COLUMNS = [
     "cement_content_kg_m3",
     "water_cement_ratio",
     "walling_absorption_percent",
+    "cement_type_opc",
+    "cement_type_ppc",
+    "cement_type_psc",
 ]
 TARGET_COLUMN = "quality_score"
 
@@ -125,6 +131,9 @@ def build_dataset() -> pd.DataFrame:
                             "cement_content_kg_m3": cement,
                             "water_cement_ratio": ratio,
                             "walling_absorption_percent": absorption.get(walling, 20.0),
+                            "cement_type_opc": float(cement_type == "OPC"),
+                            "cement_type_ppc": float(cement_type == "PPC"),
+                            "cement_type_psc": float(cement_type == "PSC"),
                             TARGET_COLUMN: quality_score_label(assessment),
                         }
                     )
@@ -150,7 +159,7 @@ def main() -> int:
     )
 
     model = GradientBoostingRegressor(
-        n_estimators=constants.RANKER_MODEL_N_ESTIMATORS,
+        n_estimators=QUALITY_SCORE_N_ESTIMATORS,
         max_depth=constants.RANKER_MODEL_MAX_DEPTH,
         random_state=constants.RANDOM_SEED,
     )

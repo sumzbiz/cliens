@@ -61,6 +61,9 @@ class QualityScoreModel:
             # IS 1077 reference absorption rather than to zero, which would read as
             # a perfect material.
             "walling_absorption_percent": self._absorption.get(selection.walling_material_id, 20.0),
+            "cement_type_opc": float(selection.concrete.cement_type.upper() == "OPC"),
+            "cement_type_ppc": float(selection.concrete.cement_type.upper() == "PPC"),
+            "cement_type_psc": float(selection.concrete.cement_type.upper() == "PSC"),
         }
 
         # Column order is part of the artifact's contract.

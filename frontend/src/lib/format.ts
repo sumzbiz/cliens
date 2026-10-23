@@ -38,12 +38,12 @@ export function bandVerdict(band: ScoreBand): string {
 
 /** Format a 0-100 score for display. */
 export function formatScore(score: number): string {
-  return score.toFixed(0);
+  return score.toFixed(1);
 }
 
 /** Format a signed score change. */
 export function formatDelta(delta: number): string {
-  return `${delta > 0 ? '+' : ''}${delta.toFixed(0)}`;
+  return `${delta > 0 ? '+' : ''}${delta.toFixed(1)}`;
 }
 
 /** Format a fraction as a percentage. */

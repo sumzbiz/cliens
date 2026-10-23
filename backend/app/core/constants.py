@@ -364,6 +364,10 @@ WET_DRY_CYCLES_SEVERE_PER_YEAR: Final[float] = 60.0
 # exceeding the minimums is visibly better than merely meeting them.
 COMPLIANT_BASE_SCORE: Final[float] = 78.0
 
+# CALIBRATED. Any failed required check caps the score at the top of the
+# marginal band, so an ML estimate cannot present a non-compliant design as good.
+NONCOMPLIANT_SCORE_CAP: Final[float] = 60.0
+
 # Points per unit of fractional shortfall. Large enough that a materially
 # non-compliant build cannot reach a passing-looking score.
 SCORE_SHORTFALL_WEIGHT: Final[float] = 55.0
