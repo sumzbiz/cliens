@@ -156,8 +156,10 @@ to coast (computed from the land/sea mask in the sea-surface-temperature field).
 A **hybrid**: a deterministic rules engine plus a model that smooths it.
 
 **1. Rules engine — `services/rules_engine.py`**
-Classifies the IS 456 exposure class from the district's measured humidity, wet
-hours and distance to coast, combined with how the element sits. Then checks the
+Classifies the IS 456 exposure class from the district's measured wet/dry cycles
+and distance to coast, combined with how the element sits. Humidity is still used
+for walling-material suitability and climate recommendations, but does not by
+itself raise every district to Severe. Then checks the
 proposed mix against **IS 456 Table 5** minimums: concrete grade, cement content,
 maximum water/cement ratio, and walling suitability. Every finding cites its
 standard.
@@ -166,14 +168,14 @@ standard.
 
 | Metric | Value |
 | --- | --- |
-| R² | **0.886** |
-| MAE | **4.34** (on a 0–100 score) |
+| R² | **0.736** |
+| MAE | **5.19** (on a 0–100 score) |
 | Training samples | 8,702 |
 | Test samples | 2,176 |
 | Seed | 20231204 (fixed — scoring is deterministic) |
 
-Top feature importances: `grade_mpa` 0.585 · `water_cement_ratio` 0.252 ·
-`cement_content_kg_m3` 0.094 · `walling_absorption_percent` 0.042
+Top feature importances: `water_cement_ratio` 0.264 | `grade_mpa` 0.258 |
+`cement_content_kg_m3` 0.219 | `distance_to_coast_km` 0.095
 
 > **What this model is.** It is trained on **scenarios labelled by the rules
 > engine**, not on observed building outcomes. No dataset exists that records

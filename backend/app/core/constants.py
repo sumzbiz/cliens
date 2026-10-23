@@ -340,9 +340,9 @@ DIRECT_SEA_SPRAY_KM: Final[float] = 1.0
 # districts observed in the 2016-2026 record.
 WET_REGIME_INDEX: Final[float] = 0.30
 
-# CALIBRATED. Sustained relative humidity at or above this level is the condition
-# under which reinforcement corrosion proceeds materially faster, which is what the
-# "severe condensation" wording is protecting against.
+# CALIBRATED. Humidity threshold used for walling suitability and climate
+# recommendations. Mean humidity alone does not determine a concrete exposure
+# class; that classification also depends on wet/dry cycling and coastal conditions.
 HIGH_HUMIDITY_PERCENT: Final[float] = 75.0
 
 # CALIBRATED. A day is "wet" above this rainfall depth. Counting transitions

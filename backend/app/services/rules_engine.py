@@ -292,13 +292,6 @@ def classify_exposure(
                 "the alternate wetting and drying condition.",
             )
 
-    if climate.mean_relative_humidity_percent >= constants.HIGH_HUMIDITY_PERCENT:
-        escalate(
-            3,
-            f"Mean relative humidity {climate.mean_relative_humidity_percent:.0f}%, at or "
-            "above the level where reinforcement corrosion accelerates.",
-        )
-
     exposure = base.exposure_by_severity(severity)
     reasons.append(f"Applied exposure class: {exposure.label} ({exposure.standard}).")
 
