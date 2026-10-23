@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import io
 from datetime import UTC, datetime
+from urllib.parse import urlencode
 
+import qrcode
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
@@ -25,6 +27,11 @@ from reportlab.pdfgen import canvas as pdf_canvas
 from app.core.logging import get_logger
 from app.services.rules_engine import ComplianceFinding
 from app.services.scoring import ScoreComparison, ScoredSelection
+
+# The public server that hosts the live audit result.
+_LIVE_BASE_URL = "http://13.203.248.62"
+# Edge length of the QR code printed in the PDF corner.
+_QR_SIZE_MM = 28 * mm
 
 logger = get_logger(__name__)
 
@@ -285,9 +292,79 @@ def build_report_pdf(comparison: ScoreComparison, *, evaluated_own_materials: bo
     cursor.space(4)
     cursor.paragraph(f"Score model: {comparison.model_version}.", 8)
 
+    # --- Verification QR code -----------------------------------------------
+    # Placed in the bottom-right corner so it never overlaps body text.
+    _draw_verification_qr(canvas, comparison)
+
     canvas.showPage()
     canvas.save()
 
     payload = buffer.getvalue()
     logger.info("report_pdf_built", district=comparison.district, bytes=len(payload))
     return payload
+
+
+def _build_verify_url(comparison: ScoreComparison) -> str:
+    """Return the deep-link URL that the QR code should resolve to.
+
+    Opens the live app with the district pre-selected so the officer lands
+    directly on the audit result without any manual navigation.
+    """
+    params = urlencode(
+        {
+            "district": comparison.district,
+            "score": f"{comparison.proposed.score:.0f}",
+            "band": comparison.proposed.band,
+        }
+    )
+    return f"{_LIVE_BASE_URL}/?{params}"
+
+
+def _draw_verification_qr(canvas: pdf_canvas.Canvas, comparison: ScoreComparison) -> None:
+    """Render the QR code into the bottom-right corner of the current page.
+
+    Soft-fails: if the ``qrcode`` library is unavailable or the image cannot be
+    built, we log a warning and leave the PDF intact rather than crashing.
+    """
+    try:
+        url = _build_verify_url(comparison)
+        qr = qrcode.QRCode(  # type: ignore[attr-defined]
+            version=None,
+            error_correction=qrcode.constants.ERROR_CORRECT_M,  # type: ignore[attr-defined]
+            box_size=10,
+            border=2,
+        )
+        qr.add_data(url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        # Write the PIL image to a bytes buffer so ReportLab can read it.
+        img_buf = io.BytesIO()
+        img.save(img_buf, format="PNG")
+        img_buf.seek(0)
+
+        x = PAGE_WIDTH - MARGIN - _QR_SIZE_MM
+        y = MARGIN
+
+        from reportlab.lib.utils import ImageReader  # local import to keep top-level tidy
+
+        canvas.drawImage(
+            ImageReader(img_buf),
+            x,
+            y,
+            width=_QR_SIZE_MM,
+            height=_QR_SIZE_MM,
+            preserveAspectRatio=True,
+            mask="auto",
+        )
+
+        # Caption under the QR code.
+        canvas.setFont("Helvetica", 5.5)
+        canvas.setFillColor(GREY)
+        canvas.drawCentredString(
+            x + _QR_SIZE_MM / 2,
+            y - 4 * mm,
+            "Scan to verify online",
+        )
+    except Exception:  # noqa: BLE001
+        logger.warning("report_pdf_qr_failed", district=comparison.district)

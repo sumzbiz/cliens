@@ -41,6 +41,8 @@ dependencies = [
     "joblib==1.4.2",
     # PDF generation for the downloadable client report.
     "reportlab==5.0.0",
+    # QR code generation — verification link embedded in the PDF report.
+    "qrcode[pil]==8.0",
 ]
 
 [project.optional-dependencies]
@@ -126,7 +128,7 @@ exclude = ["/db/migrations/"]
 [[tool.mypy.overrides]]
 # These distributions ship no type information. Ignoring the missing stubs is
 # scoped to the import itself; our own wrappers around them remain fully typed.
-module = ["geoalchemy2.*", "sklearn.*", "joblib.*", "reportlab.*", "eccodes.*"]
+module = ["geoalchemy2.*", "sklearn.*", "joblib.*", "reportlab.*", "eccodes.*", "qrcode.*"]
 ignore_missing_imports = true
 
 # ---------------------------------------------------------------------------
