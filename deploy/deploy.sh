@@ -41,8 +41,8 @@ say "Deploying to $INSTANCE_ID in $REGION"
 # Built here rather than on the instance: it needs the full node_modules tree,
 # which is far larger than the output it produces.
 say "Building the frontend"
-if command -v cmd.exe >/dev/null 2>&1 && command -v npm.cmd >/dev/null 2>&1; then
-  cmd.exe /c npm run build --workspace frontend
+if command -v npm.cmd >/dev/null 2>&1; then
+  npm.cmd run build --workspace frontend
 else
   npm run build --workspace frontend
 fi
@@ -92,6 +92,8 @@ aws s3 cp "$BUILD_DIR/site.tar.gz" "s3://$BUCKET/site.tar.gz" --region "$REGION"
 # actual error was always the part that got cut off.
 say "Building and starting on the instance (a few minutes on first run)"
 
+# Keep the site directory inode stable: Caddy bind-mounts it, and replacing the directory
+# would leave the running container attached to the old tree.
 COMMAND_ID="$(aws ssm send-command \
   --region "$REGION" \
   --instance-ids "$INSTANCE_ID" \
@@ -106,13 +108,15 @@ COMMAND_ID="$(aws ssm send-command \
     \"aws s3 cp s3://$BUCKET/site.tar.gz /opt/bqs/site.tar.gz --region $REGION\",
     \"rm -rf /opt/bqs/build && mkdir -p /opt/bqs/build\",
     \"tar -xzf /opt/bqs/backend.tar.gz -C /opt/bqs/build\",
-    \"rm -rf /opt/bqs/site && mkdir -p /opt/bqs/site\",
+    \"mkdir -p /opt/bqs/site\",
+    \"find /opt/bqs/site -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +\",
     \"tar -xzf /opt/bqs/site.tar.gz -C /opt/bqs/site\",
     \"cp /opt/bqs/build/deploy/docker-compose.prod.yml /opt/bqs/docker-compose.yml\",
     \"cp /opt/bqs/build/deploy/Caddyfile /opt/bqs/Caddyfile\",
     \"chown -R ubuntu:ubuntu /opt/bqs\",
     \"cd /opt/bqs/build && (docker build -f backend/Dockerfile -t bqs-backend:latest . > /var/log/bqs-build.log 2>&1 || (echo BUILD FAILED; tail -40 /var/log/bqs-build.log; exit 1))\",
     \"cd /opt/bqs && (docker compose --env-file .env -f docker-compose.yml up -d --remove-orphans > /var/log/bqs-up.log 2>&1 || (echo COMPOSE FAILED; tail -40 /var/log/bqs-up.log; exit 1))\",
+    \"cd /opt/bqs && docker compose --env-file .env -f docker-compose.yml up -d --force-recreate web\",
     \"docker image prune -f > /dev/null 2>&1 || true\",
     \"docker compose -f /opt/bqs/docker-compose.yml ps\"
   ]" \
