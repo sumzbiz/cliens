@@ -328,9 +328,9 @@ def _draw_verification_qr(canvas: pdf_canvas.Canvas, comparison: ScoreComparison
     """
     try:
         url = _build_verify_url(comparison)
-        qr = qrcode.QRCode(  # type: ignore[attr-defined]
+        qr = qrcode.QRCode(
             version=None,
-            error_correction=qrcode.constants.ERROR_CORRECT_M,  # type: ignore[attr-defined]
+            error_correction=qrcode.constants.ERROR_CORRECT_M,
             box_size=10,
             border=2,
         )
@@ -366,5 +366,5 @@ def _draw_verification_qr(canvas: pdf_canvas.Canvas, comparison: ScoreComparison
             y - 4 * mm,
             "Scan to verify online",
         )
-    except Exception:  # noqa: BLE001
+    except Exception:
         logger.warning("report_pdf_qr_failed", district=comparison.district)
