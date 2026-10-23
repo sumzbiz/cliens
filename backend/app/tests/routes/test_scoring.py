@@ -135,14 +135,16 @@ class TestResolvePin:
 class TestEvaluateMode:
     """Supplying materials scores them and still returns the recommendation."""
 
-    async def test_scores_a_weak_specification_poorly(self, client: AsyncClient) -> None:
+    async def test_scores_a_weak_specification_as_noncompliant_and_marginal(
+        self, client: AsyncClient
+    ) -> None:
         response = await client.post(
             "/api/score", json={"district": "Coimbatore", "materials": WEAK_SPEC}
         )
         assert response.status_code == 200
 
         body = response.json()
-        assert body["proposed"]["score"] < 50
+        assert body["proposed"]["band"] == "marginal"
         assert body["proposed"]["compliant"] is False
 
     async def test_scores_a_strong_specification_well(self, client: AsyncClient) -> None:
