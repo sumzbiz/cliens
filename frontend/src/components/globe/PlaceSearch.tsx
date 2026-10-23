@@ -13,6 +13,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { CONTROL, SPRING } from '@/components/ui';
 import { ApiError, apiClient } from '@/lib/api-client';
 import type { GeocodeMatch } from '@/types/api';
+import { useLanguage } from '@/state/language';
 
 /**
  * Delay before a keystroke becomes a request.
@@ -44,6 +45,7 @@ export function PlaceSearch({
   const [open, setOpen] = useState(false);
   const reduced = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
+  const { language } = useLanguage();
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -69,7 +71,7 @@ export function PlaceSearch({
           if (!cancelled) {
             setMatches([]);
             setError(
-              cause instanceof ApiError ? cause.message : 'The place search failed.'
+              cause instanceof ApiError ? cause.message : language === 'ta' ? 'இடத் தேடல் தோல்வியடைந்தது.' : 'The place search failed.'
             );
           }
         })
@@ -86,7 +88,7 @@ export function PlaceSearch({
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query]);
+  }, [query, language]);
 
   // Clicking away closes the results without clearing what was typed, so the
   // search can be reopened without retyping it.
@@ -134,8 +136,8 @@ export function PlaceSearch({
         <input
           type="search"
           className={`${CONTROL} glass pl-9`}
-          placeholder="Search a place, address or PIN code"
-          aria-label="Search for a place"
+          placeholder={language === 'ta' ? 'இடம், முகவரி அல்லது அஞ்சல் குறியீட்டைத் தேடுங்கள்' : 'Search a place, address or PIN code'}
+          aria-label={language === 'ta' ? 'இடத்தைத் தேடுங்கள்' : 'Search for a place'}
           value={query}
           onFocus={() => {
             setOpen(true);
@@ -183,7 +185,7 @@ export function PlaceSearch({
       </AnimatePresence>
 
       <p className="mt-1.5 px-1 text-[10px] text-ink-3/70">
-        Place search © OpenStreetMap contributors
+        {language === 'ta' ? 'இடத் தேடல் © OpenStreetMap பங்களிப்பாளர்கள்' : 'Place search © OpenStreetMap contributors'}
       </p>
     </div>
   );

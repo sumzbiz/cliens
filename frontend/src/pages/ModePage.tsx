@@ -14,11 +14,13 @@ import { buildNarration, TA } from '@/lib/narration.ta';
 import { useVoice } from '@/state/voice-context';
 import { Button } from '@/components/ui';
 import { useSession } from '@/state/session-context';
+import { useLanguage } from '@/state/language';
 
 export default function ModePage() {
   const { spec, update } = useSession();
   const navigate = useNavigate();
   const voice = useVoice();
+  const { t } = useLanguage();
 
   const choose = (evaluateOwnMaterials: boolean) => {
     update({ evaluateOwnMaterials });
@@ -41,20 +43,20 @@ export default function ModePage() {
 
       <div className="grid gap-4 sm:grid-cols-2">
         <ModeCard
-          badge="Check"
-          title="I have a specification"
-          body="Enter the concrete mix and walling you plan to use. We score it against IS 456 for your district, show every requirement it meets or misses, and show what we would specify instead."
-          action="Enter my materials"
+          badge={t('Check')}
+          title={t('I have a specification')}
+          body={t('Enter the concrete mix and walling you plan to use. We score it against IS 456 for your district, show every requirement it meets or misses, and show what we would specify instead.')}
+          action={t('Enter my materials')}
           selected={spec.evaluateOwnMaterials}
           onSelect={() => {
             choose(true);
           }}
         />
         <ModeCard
-          badge="Advise"
-          title="Tell me what to use"
-          body="Skip the form. We specify a mix and walling that clears the code for your district, and compare it against what typically gets built so you can see the gap."
-          action="Recommend a specification"
+          badge={t('Advise')}
+          title={t('Tell me what to use')}
+          body={t('Skip the form. We specify a mix and walling that clears the code for your district, and compare it against what typically gets built so you can see the gap.')}
+          action={t('Recommend a specification')}
           selected={!spec.evaluateOwnMaterials}
           onSelect={() => {
             choose(false);
@@ -69,7 +71,7 @@ export default function ModePage() {
             void navigate('/exposure');
           }}
         >
-          <span aria-hidden="true">←</span> Back
+          <span aria-hidden="true">←</span> {t('Back')}
         </Button>
       </div>
     </PageShell>

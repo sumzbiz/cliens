@@ -33,6 +33,7 @@ import {
 } from '@/lib/geo';
 import { useSession } from '@/state/session-context';
 import type { BasemapCapabilities } from '@/types/api';
+import { useLanguage } from '@/state/language';
 
 /** Where saving the drawn boundary to the database currently stands. */
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -114,6 +115,7 @@ export default function LocationPage() {
   const [target, setTarget] = useState<CameraTarget | null>(null);
   const [basemap, setBasemap] = useState<BasemapCapabilities | null>(null);
   const voice = useVoice();
+  const { t, language } = useLanguage();
   /** The outline currently being plotted, before it is closed. */
   const [previewArea, setPreviewArea] = useState<readonly LatLon[] | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
@@ -415,21 +417,21 @@ export default function LocationPage() {
           <StepRail />
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-atmos">
-              Step 1 of 5
+              {t('Step 1 of 5')}
             </p>
             <h1 className="mt-1.5 text-[clamp(1.35rem,3.2vw,2.25rem)] font-semibold leading-tight tracking-tight text-ink-1">
-              Draw your site
+              {t('Draw your site')}
             </h1>
             <p className="mt-1.5 text-[clamp(0.8rem,1.1vw,0.95rem)] leading-relaxed text-ink-2">
               {mapView === null
-                ? 'Search an address or PIN code, or zoom in — the view switches to a flat satellite map for close work.'
+                ? t('Search an address or PIN code, or zoom in — the view switches to a flat satellite map for close work.')
                 : mode === 'draw'
                   ? previewArea === null
-                    ? 'Click the first corner of your site.'
+                    ? t('Click the first corner of your site.')
                     : previewArea.length < 4
-                      ? 'Keep clicking corners — at least three.'
-                      : 'Click the first corner again to close the shape, or press Enter.'
-                  : 'Pick up the pencil, then click around your site to outline it. Zoom out to return to the globe.'}
+                      ? t('Keep clicking corners — at least three.')
+                      : t('Click the first corner again to close the shape, or press Enter.')
+                  : t('Pick up the pencil, then click around your site to outline it. Zoom out to return to the globe.')}
             </p>
           </div>
 
@@ -444,7 +446,7 @@ export default function LocationPage() {
 
         <footer className="pointer-events-auto flex flex-wrap items-end justify-between gap-3">
           <Panel className="w-[min(20rem,calc(100vw-8rem))] min-w-0 p-[clamp(0.6rem,1.2vw,1rem)]">
-            <p className="text-[11px] uppercase tracking-[0.14em] text-ink-3">Site</p>
+            <p className="text-[11px] uppercase tracking-[0.14em] text-ink-3">{t('Site')}</p>
 
             <AnimatePresence mode="wait">
               <motion.div
@@ -463,7 +465,7 @@ export default function LocationPage() {
                     </p>
                     <p className="mt-0.5 text-xs text-ink-3">
                       {siteBounds === null ? '—' : formatSpan(siteBounds)} across ·{' '}
-                      {area.length} corners
+                      {language === 'ta' ? `${area.length} மூலைகள்` : `${area.length} corners`}
                     </p>
                     <SaveStatusBadge status={saveStatus} error={saveError} />
                   </>
@@ -480,7 +482,7 @@ export default function LocationPage() {
                   </>
                 ) : (
                   <p className="mt-1 truncate text-[clamp(1.05rem,2vw,1.5rem)] font-semibold tracking-tight text-ink-1">
-                    {spec.district === '' ? 'Nothing yet' : spec.district}
+                    {spec.district === '' ? (language === 'ta' ? 'இன்னும் தேர்ந்தெடுக்கவில்லை' : 'Nothing yet') : spec.district}
                   </p>
                 )}
               </motion.div>
@@ -494,7 +496,7 @@ export default function LocationPage() {
                 }}
                 className="text-xs font-medium text-atmos underline underline-offset-4"
               >
-                Or pick a district
+                {language === 'ta' ? 'அல்லது மாவட்டத்தைத் தேர்ந்தெடுக்கவும்' : 'Or pick a district'}
               </button>
               {area !== null && (
                 <button
@@ -505,7 +507,7 @@ export default function LocationPage() {
                   }}
                   className="text-xs font-medium text-ink-3 underline underline-offset-4"
                 >
-                  Clear
+                  {language === 'ta' ? 'அழி' : 'Clear'}
                 </button>
               )}
             </div>
@@ -517,7 +519,7 @@ export default function LocationPage() {
             }}
             disabled={!ready}
           >
-            Continue
+            {t('Continue')}
             <span aria-hidden="true">→</span>
           </Button>
         </footer>
@@ -540,8 +542,8 @@ export default function LocationPage() {
 
       <Popup
         open={browsing}
-        title="Find your district"
-        description={`${String(districts?.districts.length ?? 0)} districts have measured climate.`}
+        title={language === 'ta' ? 'உங்கள் மாவட்டத்தைக் கண்டறியுங்கள்' : 'Find your district'}
+        description={language === 'ta' ? `${String(districts?.districts.length ?? 0)} மாவட்டங்களுக்கான காலநிலை அளவீடுகள் உள்ளன.` : `${String(districts?.districts.length ?? 0)} districts have measured climate.`}
         onClose={() => {
           setBrowsing(false);
         }}
@@ -549,7 +551,7 @@ export default function LocationPage() {
         <input
           type="search"
           className={CONTROL}
-          placeholder="Start typing a district name…"
+          placeholder={language === 'ta' ? 'மாவட்டத்தின் பெயரைத் தட்டச்சிடுங்கள்…' : 'Start typing a district name…'}
           value={query}
           autoFocus
           onChange={(event) => {
@@ -581,7 +583,7 @@ export default function LocationPage() {
           ))}
           {matches.length === 0 && (
             <li className="px-3 py-6 text-center text-sm text-ink-3">
-              No district matches “{query}”.
+              {language === 'ta' ? `“${query}” பொருந்தும் மாவட்டம் இல்லை.` : `No district matches “${query}”.`}
             </li>
           )}
         </ul>
@@ -599,6 +601,7 @@ export default function LocationPage() {
  * rather than pretending it succeeded.
  */
 function SaveStatusBadge({ status, error }: { status: SaveStatus; error: unknown }) {
+  const { language } = useLanguage();
   if (status === 'idle') {
     return null;
   }
@@ -610,7 +613,7 @@ function SaveStatusBadge({ status, error }: { status: SaveStatus; error: unknown
           aria-hidden="true"
           className="h-2.5 w-2.5 animate-spin rounded-full border border-white/25 border-t-atmos"
         />
-        Saving to the database…
+        {language === 'ta' ? 'தரவுத்தளத்தில் சேமிக்கப்படுகிறது…' : 'Saving to the database…'}
       </p>
     );
   }
@@ -619,13 +622,13 @@ function SaveStatusBadge({ status, error }: { status: SaveStatus; error: unknown
     return (
       <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-band-good">
         <span aria-hidden="true">✓</span>
-        Saved to the database
+        {language === 'ta' ? 'தரவுத்தளத்தில் சேமிக்கப்பட்டது' : 'Saved to the database'}
       </p>
     );
   }
 
   const message =
-    error instanceof ApiError ? error.message : "Couldn't save this boundary. You can still continue.";
+    error instanceof ApiError ? error.message : language === 'ta' ? 'இந்த எல்லையைச் சேமிக்க முடியவில்லை. நீங்கள் தொடரலாம்.' : "Couldn't save this boundary. You can still continue.";
   return <p className="mt-1.5 text-[11px] text-band-poor">{message}</p>;
 }
 
@@ -634,6 +637,7 @@ function SaveStatusBadge({ status, error }: { status: SaveStatus; error: unknown
  * keeps the earth's silhouette so the layout does not jump when it arrives.
  */
 function GlobeLoading() {
+  const { language } = useLanguage();
   return (
     <div role="status" className="flex h-full w-full items-center justify-center bg-void">
       <div className="flex flex-col items-center gap-5">
@@ -641,7 +645,7 @@ function GlobeLoading() {
           <div className="absolute inset-0 animate-pulse rounded-full bg-gradient-to-br from-atmos/25 to-transparent" />
           <div className="absolute inset-0 rounded-full border border-atmos/25" />
         </div>
-        <Spinner label="Loading satellite imagery…" />
+        <Spinner label={language === 'ta' ? 'செயற்கைக்கோள் படங்கள் ஏற்றப்படுகின்றன…' : 'Loading satellite imagery…'} />
       </div>
     </div>
   );

@@ -8,6 +8,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 
 import { useSession } from '@/state/session-context';
 import { useVoice } from '@/state/voice-context';
+import { useLanguage } from '@/state/language';
 
 /** The flow, in order. The rail and the guard both read from this one list. */
 export const STEPS = [
@@ -71,6 +72,7 @@ export function VoiceToggle() {
 
 export function StepRail() {
   const location = useLocation();
+  const { language, setLanguage, t } = useLanguage();
   const activeIndex = STEPS.findIndex((step) => step.path === location.pathname);
 
   return (
@@ -90,7 +92,7 @@ export function StepRail() {
                     : 'text-ink-3/50'
               }`}
             >
-              {step.label}
+              {t(step.label)}
             </span>
             {index < STEPS.length - 1 && (
               <span aria-hidden="true" className="h-px w-5 bg-white/12" />
@@ -99,6 +101,18 @@ export function StepRail() {
         );
       })}
       <VoiceToggle />
+      <label className="ml-auto flex items-center gap-2 text-[11px] text-ink-2">
+        <span>{t('Choose language')}</span>
+        <select
+          aria-label={t('Choose language')}
+          value={language}
+          onChange={(event) => setLanguage(event.target.value === 'ta' ? 'ta' : 'en')}
+          className="rounded-full border border-white/12 bg-void/80 px-2.5 py-1 text-ink-1 outline-none focus:border-atmos"
+        >
+          <option value="en">{t('English')}</option>
+          <option value="ta">{t('Tamil')}</option>
+        </select>
+      </label>
     </nav>
   );
 }
@@ -123,6 +137,7 @@ export function PageShell({
   wide?: boolean;
 }) {
   const reduced = useReducedMotion();
+  const { t } = useLanguage();
 
   return (
     <div className="relative min-h-full overflow-hidden">
@@ -145,13 +160,13 @@ export function PageShell({
           <StepRail />
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-atmos">
-              {eyebrow}
+              {t(eyebrow)}
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink-1 sm:text-4xl">
-              {title}
+              {t(title)}
             </h1>
             {lead !== undefined && (
-              <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-ink-2">{lead}</p>
+              <p className="mt-3 max-w-prose text-[15px] leading-relaxed text-ink-2">{t(lead)}</p>
             )}
           </div>
         </header>

@@ -22,6 +22,17 @@ import { formatParameter, formatPercent } from '@/lib/format';
 import { boundsOf } from '@/lib/geo';
 import { useSession, type SiteSpecification } from '@/state/session-context';
 import type { MaterialSelectionInput, ScoreResponse } from '@/types/api';
+import { useLanguage } from '@/state/language';
+
+const EXPOSURE_TA: Record<string, string> = {
+  Mild: 'குறைந்த', Moderate: 'மிதமான', Severe: 'கடுமையான', 'Very severe': 'மிகக் கடுமையான', VerySevere: 'மிகக் கடுமையான', Extreme: 'அதீத',
+};
+const FINDING_LABEL_TA: Record<string, string> = {
+  concrete_grade_mpa: 'கான்கிரீட் தரம்',
+  cement_content_kg_m3: 'சிமெண்டு அளவு',
+  water_cement_ratio: 'நீர்/சிமெண்டு விகிதம்',
+  walling_climate_suitability: 'சுவர் பொருளின் காலநிலைப் பொருத்தம்',
+};
 
 /**
  * The materials payload, or null.
@@ -47,6 +58,7 @@ export default function ScorePage() {
   const [error, setError] = useState<unknown>(null);
   const [climateOpen, setClimateOpen] = useState(false);
   const voice = useVoice();
+  const { t, language } = useLanguage();
 
   // Two report endpoints for the same reason there are two score endpoints: a
   // drawn outline has no district name, and the district report requires one.
@@ -117,17 +129,19 @@ export default function ScorePage() {
       eyebrow="Step 5 of 5"
       // `result.district` rather than `spec.district`: a drawn outline has no
       // district name of its own, and the server names what it actually scored.
-      title={result === null ? 'Scoring…' : `${result.district}, scored`}
+      title={result === null ? t('Scoring…') : language === 'ta' ? `${result.district} — மதிப்பீடு` : `${result.district}, scored`}
       lead={
         result === null
           ? undefined
-          : `${result.exposure_label} exposure, from climate measured on the ground rather than modelled.`
+          : language === 'ta'
+            ? `நேரடியாக அளவிடப்பட்ட காலநிலைத் தரவின் அடிப்படையில் ${EXPOSURE_TA[result.exposure_label] ?? result.exposure_label} தாக்கம்.`
+            : `${result.exposure_label} exposure, from climate measured on the ground rather than modelled.`
       }
       wide
     >
       {result === null && error === null && (
         <Panel className="p-10">
-          <Spinner label="Checking your specification against IS 456…" />
+          <Spinner label={t('Checking your specification against IS 456…')} />
         </Panel>
       )}
 
@@ -140,7 +154,7 @@ export default function ScorePage() {
               void navigate('/materials');
             }}
           >
-            Go back and change something
+            {t('Go back and change something')}
           </Button>
         </div>
       )}
@@ -159,7 +173,7 @@ export default function ScorePage() {
               compliant: result.proposed.compliant,
             })}
             enabled={voice.enabled}
-            label="முடிவைக் கேளுங்கள்"
+            label={language === 'ta' ? 'முடிவைக் கேளுங்கள்' : 'Hear the result'}
           />
 
           <ScoreComparison
@@ -178,7 +192,7 @@ export default function ScorePage() {
           <Panel className="p-6">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
               <h2 className="text-base font-semibold text-ink-1">
-                Your site is {result.exposure_label.toLowerCase()} exposure
+                {language === 'ta' ? `உங்கள் தளம் ${EXPOSURE_TA[result.exposure_label] ?? result.exposure_label} தாக்கத்தில் உள்ளது` : `Your site is ${result.exposure_label.toLowerCase()} exposure`}
               </h2>
               <button
                 type="button"
@@ -187,7 +201,7 @@ export default function ScorePage() {
                 }}
                 className="text-sm font-medium text-atmos underline underline-offset-4"
               >
-                See the measurements
+                {t('See the measurements')}
               </button>
             </div>
             <ul className="mt-3 space-y-1.5 text-sm text-ink-2">
@@ -203,15 +217,15 @@ export default function ScorePage() {
           </Panel>
 
           <Panel className="p-6">
-            <h2 className="text-base font-semibold text-ink-1">What we checked</h2>
+            <h2 className="text-base font-semibold text-ink-1">{t('What we checked')}</h2>
             <div className="mt-4 overflow-x-auto">
               <table className="w-full min-w-[28rem] text-left text-sm">
                 <thead>
                   <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.12em] text-ink-3">
-                    <th className="pb-2.5 font-medium">Requirement</th>
-                    <th className="pb-2.5 text-right font-medium">Code needs</th>
-                    <th className="pb-2.5 text-right font-medium">You have</th>
-                    <th className="pb-2.5 text-right font-medium">Result</th>
+                    <th className="pb-2.5 font-medium">{t('Requirement')}</th>
+                    <th className="pb-2.5 text-right font-medium">{t('Code needs')}</th>
+                    <th className="pb-2.5 text-right font-medium">{t('You have')}</th>
+                    <th className="pb-2.5 text-right font-medium">{t('Result')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -226,7 +240,7 @@ export default function ScorePage() {
                       }
                     >
                       <td className="py-2.5 text-ink-1">
-                        {formatParameter(finding.parameter)}
+                        {language === 'ta' ? (FINDING_LABEL_TA[finding.parameter] ?? formatParameter(finding.parameter)) : formatParameter(finding.parameter)}
                         {!isSpecComparison(finding.parameter) && (
                           // This row is not a spec-versus-limit comparison, so the
                           // numeric columns are blank and the reason goes here
@@ -251,7 +265,7 @@ export default function ScorePage() {
                           finding.compliant ? 'text-band-good' : 'text-band-poor'
                         }`}
                       >
-                        {finding.compliant ? 'Meets' : 'Short'}
+                        {finding.compliant ? t('Meets') : t('Short')}
                       </td>
                     </motion.tr>
                   ))}
@@ -263,7 +277,7 @@ export default function ScorePage() {
           {result.recommendations.length > 0 && (
             <Panel className="p-6">
               <h2 className="text-base font-semibold text-ink-1">
-                Recommended for this climate
+                {t('Recommended for this climate')}
               </h2>
               <ul className="mt-4 space-y-4">
                 {result.recommendations.map((recommendation) => (
@@ -272,7 +286,7 @@ export default function ScorePage() {
                       {recommendation.material}
                       {recommendation.followed && (
                         <span className="ml-2 text-xs font-medium text-band-good">
-                          already in your spec
+                          {t('already in your spec')}
                         </span>
                       )}
                     </p>
@@ -285,10 +299,9 @@ export default function ScorePage() {
           )}
 
           <Panel className="p-6">
-            <h2 className="text-base font-semibold text-ink-1">Take this with you</h2>
+            <h2 className="text-base font-semibold text-ink-1">{t('Take this with you')}</h2>
             <p className="mt-1 text-sm leading-relaxed text-ink-2">
-              A one-page summary you can hand to your contractor, with the
-              specification and the code clause behind each item.
+              {t('A one-page summary you can hand to your contractor, with the specification and the code clause behind each item.')}
             </p>
             <div className="mt-4 flex flex-wrap gap-3">
               <Button
@@ -297,7 +310,7 @@ export default function ScorePage() {
                 }}
                 disabled={report.loading}
               >
-                {report.loading ? 'Preparing…' : 'Download the report (PDF)'}
+                {report.loading ? t('Preparing…') : t('Download the report (PDF)')}
               </Button>
               <Button
                 variant="secondary"
@@ -305,7 +318,7 @@ export default function ScorePage() {
                   void navigate('/materials');
                 }}
               >
-                Change my materials
+                {t('Change my materials')}
               </Button>
             </div>
             {report.error !== null && (
@@ -316,14 +329,14 @@ export default function ScorePage() {
           </Panel>
 
           <p className="text-xs leading-relaxed text-ink-3">
-            Score computed by {result.model_version}, from IS 456 compliance margins.
-            It reflects code compliance against measured climate — it is not a
-            prediction of whether a building will fail.
+            {language === 'ta'
+              ? `${result.model_version} மாதிரி, IS 456 விதிமுறைப் பூர்த்தி அளவுகளின் அடிப்படையில் கணக்கிட்ட மதிப்பெண். இது அளவிடப்பட்ட காலநிலைக்கு எதிரான விதிமுறைப் பூர்த்தியை காட்டுகிறது; கட்டிடம் தோல்வியடையுமா என்ற கணிப்பு அல்ல.`
+              : <>Score computed by {result.model_version}, from IS 456 compliance margins. It reflects code compliance against measured climate — it is not a prediction of whether a building will fail.</>}
           </p>
 
           <Popup
             open={climateOpen}
-            title={`Measured climate for ${result.district}`}
+            title={language === 'ta' ? `${result.district} — அளவிடப்பட்ட காலநிலை` : `Measured climate for ${result.district}`}
             description={`${result.data_source['dataset'] ?? 'Reanalysis'}, ${String(result.climate.observation_days)} days observed.`}
             onClose={() => {
               setClimateOpen(false);
@@ -331,27 +344,27 @@ export default function ScorePage() {
           >
             <dl className="grid grid-cols-2 gap-5">
               <Measurement
-                label="Mean humidity"
+                label={t('Mean humidity')}
                 value={`${result.climate.mean_relative_humidity_percent.toFixed(0)}%`}
               />
               <Measurement
-                label="Mean peak temp"
+                label={t('Mean peak temp')}
                 value={`${result.climate.mean_max_temperature_c.toFixed(1)} °C`}
               />
               <Measurement
-                label="Distance from coast"
+                label={t('Distance from coast')}
                 value={`${result.climate.distance_to_coast_km.toFixed(0)} km`}
               />
               <Measurement
-                label="Peak wind gust"
+                label={t('Peak wind gust')}
                 value={`${result.climate.max_wind_gust_ms.toFixed(1)} m/s`}
               />
               <Measurement
-                label="Wet hours"
+                label={t('Wet hours')}
                 value={formatPercent(result.climate.wet_hours_fraction)}
               />
               <Measurement
-                label="Wet/dry cycles"
+                label={t('Wet/dry cycles')}
                 value={`${result.climate.wet_dry_cycles_per_year.toFixed(0)} /yr`}
               />
             </dl>

@@ -16,6 +16,7 @@ import { useVoice } from '@/state/voice-context';
 import { Button, CONTROL, ChoiceCard, Field, Panel, Popup } from '@/components/ui';
 import { useSession } from '@/state/session-context';
 import { CEMENT_TYPES, CONCRETE_GRADES, WALLING_MATERIALS } from '@/types/api';
+import { useLanguage } from '@/state/language';
 
 /** Which popup is open, if any. */
 type Editor = 'grade' | 'cement' | 'ratio' | 'walling' | null;
@@ -25,6 +26,7 @@ export default function MaterialsPage() {
   const navigate = useNavigate();
   const [editor, setEditor] = useState<Editor>(null);
   const voice = useVoice();
+  const { t, language } = useLanguage();
 
   const close = () => {
     setEditor(null);
@@ -45,15 +47,15 @@ export default function MaterialsPage() {
     >
       <Panel className="divide-y divide-white/[0.07] p-2">
         <SpecRow
-          label="Concrete grade"
+          label={t('Concrete grade')}
           value={spec.concrete.grade}
-          note="Characteristic strength"
+          note={t('Characteristic strength')}
           onEdit={() => {
             setEditor('grade');
           }}
         />
         <SpecRow
-          label="Cement content"
+          label={t('Cement content')}
           value={`${String(spec.concrete.cement_content_kg_m3)} kg/m³`}
           note={cementLabel}
           onEdit={() => {
@@ -61,17 +63,17 @@ export default function MaterialsPage() {
           }}
         />
         <SpecRow
-          label="Water / cement ratio"
+          label={t('Water / cement ratio')}
           value={spec.concrete.water_cement_ratio.toFixed(2)}
-          note="Lower is denser and more durable"
+          note={t('Lower is denser and more durable')}
           onEdit={() => {
             setEditor('ratio');
           }}
         />
         <SpecRow
-          label="Walling"
+          label={t('Walling')}
           value={wallingLabel}
-          note="Checked for this climate's suitability"
+          note={t("Checked for this climate’s suitability")}
           onEdit={() => {
             setEditor('walling');
           }}
@@ -85,21 +87,21 @@ export default function MaterialsPage() {
             void navigate('/mode');
           }}
         >
-          <span aria-hidden="true">←</span> Back
+          <span aria-hidden="true">←</span> {t('Back')}
         </Button>
         <Button
           onClick={() => {
             void navigate('/score');
           }}
         >
-          Score this specification <span aria-hidden="true">→</span>
+          {t('Score this specification')} <span aria-hidden="true">→</span>
         </Button>
       </div>
 
       <Popup
         open={editor === 'grade'}
-        title="Concrete grade"
-        description="The characteristic compressive strength in N/mm² at 28 days."
+        title={t('Concrete grade')}
+        description={t('The characteristic compressive strength in N/mm² at 28 days.')}
         onClose={close}
       >
         <VoiceExplainer
@@ -127,16 +129,14 @@ export default function MaterialsPage() {
           ))}
         </div>
         <p className="mt-4 text-xs leading-relaxed text-ink-3">
-          A severe exposure class raises the minimum grade. Choosing below it is not
-          an error here — it will simply show as a shortfall on your score, with the
-          clause that requires more.
+          {language === 'ta' ? 'கடுமையான வெளிப்பாட்டு வகை குறைந்தபட்ச தரத்தை உயர்த்தும். அதைவிடக் குறைவானதைத் தேர்ந்தெடுப்பது இங்கு பிழையல்ல; மதிப்பீட்டில் குறைபாடாகவும் அதற்கான விதிமுறைப் பிரிவுடனும் காட்டப்படும்.' : 'A severe exposure class raises the minimum grade. Choosing below it is not an error here — it will simply show as a shortfall on your score, with the clause that requires more.'}
         </p>
       </Popup>
 
       <Popup
         open={editor === 'cement'}
-        title="Cement"
-        description="Content per cubic metre, and the type."
+        title={t('Cement')}
+        description={language === 'ta' ? 'ஒரு கன மீட்டருக்கான அளவும் சிமெண்டு வகையும்.' : 'Content per cubic metre, and the type.'}
         onClose={close}
       >
         <VoiceExplainer
@@ -144,7 +144,7 @@ export default function MaterialsPage() {
           enabled={voice.enabled}
           className="mb-4"
         />
-        <Field label="Cement content" hint="kg per m³ of concrete. Typically 250–450.">
+        <Field label={t('Cement content')} hint={language === 'ta' ? 'ஒரு கன மீட்டர் கான்கிரீட்டுக்கான கிலோகிராம். வழக்கமாக 250–450.' : 'kg per m³ of concrete. Typically 250–450.'}>
           {(id) => (
             <input
               id={id}
@@ -167,15 +167,15 @@ export default function MaterialsPage() {
         </Field>
 
         <div className="mt-5 space-y-2">
-          <p className="text-sm font-medium text-ink-1">Cement type</p>
+          <p className="text-sm font-medium text-ink-1">{t('Cement type')}</p>
           {CEMENT_TYPES.map((type) => (
             <ChoiceCard
               key={type.value}
               label={type.label}
               hint={
                 type.value === 'OPC'
-                  ? 'The default. No supplementary material.'
-                  : 'Blended — generally better against chlorides and sulphates.'
+                  ? language === 'ta' ? 'இயல்புநிலை. கூடுதல் கலப்புப் பொருள் இல்லை.' : 'The default. No supplementary material.'
+                  : language === 'ta' ? 'கலப்பு சிமெண்டு — குளோரைடு மற்றும் சல்பேட் தாக்கங்களுக்கு பொதுவாகச் சிறந்தது.' : 'Blended — generally better against chlorides and sulphates.'
               }
               selected={spec.concrete.cement_type === type.value}
               onSelect={() => {
@@ -186,14 +186,14 @@ export default function MaterialsPage() {
         </div>
 
         <div className="mt-5 flex justify-end">
-          <Button onClick={close}>Done</Button>
+          <Button onClick={close}>{t('Done')}</Button>
         </div>
       </Popup>
 
       <Popup
         open={editor === 'ratio'}
-        title="Water / cement ratio"
-        description="Mass of water divided by mass of cement."
+        title={t('Water / cement ratio')}
+        description={language === 'ta' ? 'நீரின் நிறை ÷ சிமெண்டின் நிறை.' : 'Mass of water divided by mass of cement.'}
         onClose={close}
       >
         <VoiceExplainer
@@ -209,7 +209,7 @@ export default function MaterialsPage() {
           min={0.3}
           max={0.7}
           step={0.01}
-          aria-label="Water to cement ratio"
+          aria-label={t('Water to cement ratio')}
           className="mt-6 w-full accent-[var(--color-atmos)]"
           value={spec.concrete.water_cement_ratio}
           onChange={(event) => {
@@ -217,24 +217,21 @@ export default function MaterialsPage() {
           }}
         />
         <div className="tabular mt-1 flex justify-between text-xs text-ink-3">
-          <span>0.30 — dense, hard to place</span>
-          <span>0.70 — workable, porous</span>
+          <span>{language === 'ta' ? '0.30 — அடர்த்தியானது, கையாளக் கடினம்' : '0.30 — dense, hard to place'}</span>
+          <span>{language === 'ta' ? '0.70 — எளிதில் கையாளலாம், துளைகள் அதிகம்' : '0.70 — workable, porous'}</span>
         </div>
         <p className="mt-5 text-xs leading-relaxed text-ink-3">
-          This is the single strongest lever on durability. Excess water leaves
-          capillary pores behind when it evaporates, and those pores are the route
-          moisture and chlorides take to the reinforcement. IS 456 caps it per
-          exposure class for exactly that reason.
+          {language === 'ta' ? 'நீடித்த தன்மையை நிர்ணயிக்கும் மிக முக்கியமான காரணி இதுவே. அதிகப்படியான நீர் ஆவியாகும்போது நுண்துளைகளை விடுகிறது; அவற்றின் வழியாக ஈரமும் குளோரைடும் கம்பிவலையை அடைகின்றன. அதனால்தான் IS 456 ஒவ்வொரு வெளிப்பாட்டு வகைக்கும் இதன் அதிகபட்ச அளவை நிர்ணயிக்கிறது.' : 'This is the single strongest lever on durability. Excess water leaves capillary pores behind when it evaporates, and those pores are the route moisture and chlorides take to the reinforcement. IS 456 caps it per exposure class for exactly that reason.'}
         </p>
         <div className="mt-5 flex justify-end">
-          <Button onClick={close}>Done</Button>
+          <Button onClick={close}>{t('Done')}</Button>
         </div>
       </Popup>
 
       <Popup
         open={editor === 'walling'}
-        title="Walling material"
-        description="Assessed for suitability in your district's climate."
+        title={t('Walling material')}
+        description={language === 'ta' ? 'உங்கள் மாவட்டத்தின் காலநிலைக்கான பொருத்தம் மதிப்பிடப்படும்.' : "Assessed for suitability in your district's climate."}
         onClose={close}
       >
         <VoiceExplainer
@@ -247,7 +244,7 @@ export default function MaterialsPage() {
             <ChoiceCard
               key={material.value}
               label={material.label}
-              hint={WALLING_NOTE[material.value] ?? ''}
+              hint={language === 'ta' ? (WALLING_NOTE_TA[material.value] ?? '') : (WALLING_NOTE[material.value] ?? '')}
               selected={spec.wallingMaterialId === material.value}
               onSelect={() => {
                 update({ wallingMaterialId: material.value });
@@ -272,6 +269,13 @@ const WALLING_NOTE: Record<string, string> = {
   aac_block: 'Light and insulating, but needs protection from driving rain.',
   concrete_solid_block: 'Strong and low-absorption. Poor insulator.',
   engineering_brick: 'Very low absorption. The choice for severe exposure.',
+};
+const WALLING_NOTE_TA: Record<string, string> = {
+  burnt_clay_brick: 'பிராந்தியத்தில் பொதுவாகப் பயன்படுத்துவது. மாற்றுப் பொருட்களைவிட அதிக நீரை உறிஞ்சும்.',
+  fly_ash_brick: 'சுட்ட செங்கல்லைவிட அடர்த்தியும் பரிமாண நிலைத்தன்மையும் அதிகம்.',
+  aac_block: 'எடை குறைவு, வெப்பத் தடுப்பு உண்டு; நேரடி மழையிலிருந்து பாதுகாப்பு தேவை.',
+  concrete_solid_block: 'வலிமையானது, நீர் உறிஞ்சுதல் குறைவு; வெப்பத் தடுப்பு குறைவு.',
+  engineering_brick: 'மிகக் குறைந்த நீர் உறிஞ்சுதல். கடுமையான தாக்கத்திற்கான தேர்வு.',
 };
 
 function SpecRow({

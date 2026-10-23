@@ -19,6 +19,7 @@
 import { motion, useReducedMotion } from 'motion/react';
 
 import type { ScoredSelection } from '@/types/api';
+import { useLanguage } from '@/state/language';
 
 /**
  * Top of the axis, in years.
@@ -45,6 +46,7 @@ function LifeBar({
   emphasis: boolean;
   delay: number;
 }) {
+  const { language } = useLanguage();
   const reduced = useReducedMotion();
 
   const start = percent(life.lower_years);
@@ -62,7 +64,7 @@ function LifeBar({
           >
             {Math.round(life.years)}
           </span>{' '}
-          years
+          {language === 'ta' ? 'ஆண்டுகள்' : 'years'}
         </p>
       </div>
 
@@ -96,7 +98,7 @@ function LifeBar({
       </div>
 
       <p className="tabular mt-1 text-[11px] text-ink-3">
-        likely {Math.round(life.lower_years)}–{Math.round(life.upper_years)} years
+        {language === 'ta' ? `எதிர்பார்க்கப்படும் காலம்: ${Math.round(life.lower_years)}–${Math.round(life.upper_years)} ஆண்டுகள்` : `likely ${Math.round(life.lower_years)}–${Math.round(life.upper_years)} years`}
       </p>
     </div>
   );
@@ -111,6 +113,7 @@ export function ServiceLifeComparison({
   recommended: ScoredSelection;
   evaluatedOwnMaterials: boolean;
 }) {
+  const { language } = useLanguage();
   const gained = Math.round(recommended.service_life.years - proposed.service_life.years);
   const baseline = proposed.service_life.baseline_years;
 
@@ -118,23 +121,23 @@ export function ServiceLifeComparison({
     <section aria-labelledby="life-heading" className="glass rounded-2xl p-6 sm:p-8">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 id="life-heading" className="text-base font-semibold text-ink-1">
-          How long it should last
+          {language === 'ta' ? 'எவ்வளவு காலம் நீடிக்கும்' : 'How long it should last'}
         </h2>
         <p className="tabular text-xs text-ink-3">
-          code design life {Math.round(baseline)} years
+          {language === 'ta' ? `விதிமுறை வடிவமைப்பு ஆயுள்: ${Math.round(baseline)} ஆண்டுகள்` : `code design life ${Math.round(baseline)} years`}
         </p>
       </div>
 
       <div className="mt-5 space-y-5">
         <LifeBar
-          label={evaluatedOwnMaterials ? 'Your specification' : 'Typical local build'}
+          label={language === 'ta' ? (evaluatedOwnMaterials ? 'உங்கள் விவரக்குறிப்பு' : 'வழக்கமான உள்ளூர் கட்டுமானம்') : evaluatedOwnMaterials ? 'Your specification' : 'Typical local build'}
           life={proposed.service_life}
           accent={false}
           emphasis={evaluatedOwnMaterials}
           delay={0.1}
         />
         <LifeBar
-          label="What we'd specify"
+          label={language === 'ta' ? 'எங்கள் பரிந்துரை' : "What we'd specify"}
           life={recommended.service_life}
           accent
           emphasis={!evaluatedOwnMaterials}
@@ -148,12 +151,16 @@ export function ServiceLifeComparison({
         className="tabular mt-2 flex justify-between text-[10px] text-ink-3/60"
       >
         <span>0</span>
-        <span>{AXIS_MAX_YEARS / 2} years</span>
+        <span>{AXIS_MAX_YEARS / 2} {language === 'ta' ? 'ஆண்டுகள்' : 'years'}</span>
         <span>{AXIS_MAX_YEARS}+</span>
       </div>
 
       <p className="mt-5 border-t border-white/10 pt-4 text-sm leading-relaxed text-ink-2">
-        {gained > 0
+        {language === 'ta'
+          ? gained > 0
+            ? `பரிந்துரைக்கப்பட்ட விவரக்குறிப்பு சுமார் ${String(gained)} ஆண்டுகள் கூடுதல் நீடிக்கும்.`
+            : 'பரிந்துரைக்கப்பட்ட விவரக்குறிப்பு ஆயுளை மேலும் நீட்டிக்காது.'
+          : gained > 0
           ? `The recommended specification should serve about ${String(gained)} years longer.`
           : 'The recommended specification would not extend this further.'}
       </p>

@@ -6,6 +6,7 @@ import App from './App';
 import './index.css';
 import { SessionProvider } from './state/session';
 import { VoiceProvider } from './state/voice';
+import { LanguageProvider } from './state/language';
 
 const container = document.getElementById('root');
 
@@ -19,9 +20,11 @@ createRoot(container).render(
   <StrictMode>
     <BrowserRouter>
       <SessionProvider>
-        <VoiceProvider>
-          <App />
-        </VoiceProvider>
+        <LanguageProvider>
+          <VoiceProvider>
+            <App />
+          </VoiceProvider>
+        </LanguageProvider>
       </SessionProvider>
     </BrowserRouter>
   </StrictMode>

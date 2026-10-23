@@ -12,6 +12,7 @@
  * drag; two buttons show which mode is active without being interrogated.
  */
 import type { ReactNode } from 'react';
+import { useLanguage } from '@/state/language';
 
 export type MapMode = 'pan' | 'draw';
 
@@ -55,20 +56,21 @@ export function MapControls({
   onZoomIn: () => void;
   onZoomOut: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="pointer-events-auto flex flex-col gap-2">
       <div className="glass flex flex-col gap-1.5 rounded-2xl p-1.5">
-        <ControlButton label="Zoom in" onClick={onZoomIn}>
+        <ControlButton label={t('Zoom in')} onClick={onZoomIn}>
           <span aria-hidden="true">+</span>
         </ControlButton>
-        <ControlButton label="Zoom out" onClick={onZoomOut}>
+        <ControlButton label={t('Zoom out')} onClick={onZoomOut}>
           <span aria-hidden="true">−</span>
         </ControlButton>
       </div>
 
       <div className="glass flex flex-col gap-1.5 rounded-2xl p-1.5">
         <ControlButton
-          label="Move the map"
+          label={t('Move the map')}
           active={mode === 'pan'}
           onClick={() => {
             onModeChange('pan');
@@ -77,7 +79,7 @@ export function MapControls({
           <span aria-hidden="true">✋</span>
         </ControlButton>
         <ControlButton
-          label="Draw your site boundary"
+          label={t('Draw your site boundary')}
           active={mode === 'draw'}
           onClick={() => {
             onModeChange('draw');

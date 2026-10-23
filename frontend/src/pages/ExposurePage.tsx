@@ -21,6 +21,7 @@ import { useVoice } from '@/state/voice-context';
 import { Button, ChoiceCard } from '@/components/ui';
 import { useSession } from '@/state/session-context';
 import { ELEMENT_SITUATIONS } from '@/types/api';
+import { useLanguage } from '@/state/language';
 
 /** Consequence text, so a choice is made knowingly rather than guessed at. */
 const CONSEQUENCE: Record<string, string> = {
@@ -31,10 +32,26 @@ const CONSEQUENCE: Record<string, string> = {
   tidal: 'The most severe class in IS 456. Expect a high grade and a low w/c ratio.',
 };
 
+const CONSEQUENCE_TA: Record<string, string> = {
+  enclosed: 'மிகக் குறைந்த தாக்கம். குறைந்தபட்ச கலவையை விதிமுறை அனுமதிக்கிறது.',
+  sheltered: 'மூடப்பட்ட சூழலைவிட சற்றுக் கடுமையானது.',
+  exposed: 'வெளிப்புறக் கட்டமைப்புகளுக்கான பொதுவான நிலை.',
+  buried: 'மண் ஈரத்தையும் உப்புகளையும் கான்கிரீட்டின் அருகில் வைத்திருப்பதால் விதிமுறை கடுமையாகிறது.',
+  tidal: 'IS 456-இல் மிகக் கடுமையான வகை. அதிக தரமும் குறைந்த நீர்/சிமெண்டு விகிதமும் தேவை.',
+};
+const SITUATION_TA: Record<string, [string, string]> = {
+  enclosed: ['மூடப்பட்ட / உலர்', 'நீர் மற்றும் வானிலைத் தாக்கம் குறைந்த உட்புறப் பகுதி.'],
+  sheltered: ['பாதுகாக்கப்பட்ட', 'நேரடி மழை மற்றும் காற்றிலிருந்து பாதுகாக்கப்பட்ட பகுதி.'],
+  exposed: ['வெளிப்புறம்', 'மழை மற்றும் காற்றுக்கு வெளிப்படும் கட்டமைப்பு.'],
+  buried: ['மண்ணுக்குள் புதைக்கப்பட்டது', 'மண் ஈரம் மற்றும் கரைந்த உப்புகளின் தாக்கம்.'],
+  tidal: ['அலை/கடல் நீர் தாக்கம்', 'கடல் நீர் அல்லது அலைகளின் நேரடி தாக்கம்.'],
+};
+
 export default function ExposurePage() {
   const { spec, update, area } = useSession();
   const navigate = useNavigate();
   const voice = useVoice();
+  const { t, language } = useLanguage();
 
   return (
     <PageShell
@@ -42,7 +59,7 @@ export default function ExposurePage() {
       title="How does the concrete sit?"
       // A drawn outline has no district name — that is resolved server-side when
       // it is scored — so naming one here would print "For ." instead.
-      lead={`${
+      lead={language === 'ta' ? 'நீங்கள் தேர்ந்தெடுத்த தளத்திற்கு இந்தத் தீர்மானம் பொருந்தும். இது பொருந்தும் IS 456 வெளிப்பாட்டு வகையை நிர்ணயிக்கிறது; உங்கள் விவரக்குறிப்பு பூர்த்தி செய்ய வேண்டிய குறைந்தபட்ச தேவைகளையும் அமைக்கிறது.' : `${
         area === null ? `For ${spec.district}.` : 'For the site you drew.'
       } This decides which IS 456 exposure class applies, and that sets the minimum your specification has to clear.`}
       wide
@@ -60,8 +77,8 @@ export default function ExposurePage() {
           {ELEMENT_SITUATIONS.map((situation) => (
             <ChoiceCard
               key={situation.value}
-              label={situation.label}
-              hint={situation.hint}
+              label={language === 'ta' ? (SITUATION_TA[situation.value]?.[0] ?? situation.label) : situation.label}
+              hint={language === 'ta' ? (SITUATION_TA[situation.value]?.[1] ?? situation.hint) : situation.hint}
               selected={spec.situation === situation.value}
               onSelect={() => {
                 update({ situation: situation.value });
@@ -75,15 +92,12 @@ export default function ExposurePage() {
           className="glass rounded-2xl p-5 lg:sticky lg:top-6"
         >
           <h2 id="exposure-explainer" className="text-sm font-semibold text-ink-1">
-            Why this question decides so much
+            {t('Why this question decides so much')}
           </h2>
           <p className="mt-0.5 text-xs text-ink-3">IS 456:2000, Table 3 and Table 5.</p>
 
           <p className="mt-4 text-sm leading-relaxed text-ink-2">
-            The code does not set one standard for all concrete. It sorts an element
-            into an exposure class by how much water, salt and air reaches it, then
-            sets a different minimum grade, minimum cement content and maximum
-            water/cement ratio for each class.
+            {t('The code does not set one standard for all concrete. It sorts an element into an exposure class by how much water, salt and air reaches it, then sets a different minimum grade, minimum cement content and maximum water/cement ratio for each class.')}
           </p>
 
           <ul className="mt-4 space-y-2.5 border-t border-white/10 pt-4">
@@ -96,11 +110,11 @@ export default function ExposurePage() {
                   <span
                     className={`font-semibold ${active ? 'text-atmos' : 'text-ink-1'}`}
                   >
-                    {situation.label}
+                    {language === 'ta' ? (SITUATION_TA[situation.value]?.[0] ?? situation.label) : situation.label}
                   </span>
                   <span className={active ? 'text-ink-2' : 'text-ink-3'}>
                     {' '}
-                    — {CONSEQUENCE[situation.value] ?? ''}
+                    — {language === 'ta' ? (CONSEQUENCE_TA[situation.value] ?? '') : (CONSEQUENCE[situation.value] ?? '')}
                   </span>
                 </li>
               );
@@ -108,9 +122,7 @@ export default function ExposurePage() {
           </ul>
 
           <p className="mt-4 border-t border-white/10 pt-4 text-xs leading-relaxed text-ink-3">
-            Your district&rsquo;s measured humidity, wet hours and distance from the coast
-            are combined with this answer to pick the final class. You are not choosing
-            the class directly.
+            {t('Your district’s measured humidity, wet hours and distance from the coast are combined with this answer to pick the final class. You are not choosing the class directly.')}
           </p>
         </aside>
       </div>
@@ -122,14 +134,14 @@ export default function ExposurePage() {
             void navigate('/');
           }}
         >
-          <span aria-hidden="true">←</span> Back
+          <span aria-hidden="true">←</span> {t('Back')}
         </Button>
         <Button
           onClick={() => {
             void navigate('/mode');
           }}
         >
-          Continue <span aria-hidden="true">→</span>
+          {t('Continue')} <span aria-hidden="true">→</span>
         </Button>
       </div>
     </PageShell>

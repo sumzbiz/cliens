@@ -13,6 +13,7 @@ import { motion, useReducedMotion } from 'motion/react';
 
 import { bandFillClass, bandTextClass, bandVerdict, formatDelta, formatScore } from '@/lib/format';
 import type { ScoredSelection } from '@/types/api';
+import { useLanguage } from '@/state/language';
 
 const TRACK_HEIGHT = 220;
 
@@ -77,6 +78,7 @@ export function ScoreComparison({
   improvement: number;
   evaluatedOwnMaterials: boolean;
 }) {
+  const { language } = useLanguage();
   const keepingProposed =
     evaluatedOwnMaterials &&
     proposed.concrete.grade === recommended.concrete.grade &&
@@ -95,7 +97,7 @@ export function ScoreComparison({
       <div className="flex items-end gap-4 sm:gap-8">
         <Column
           scored={proposed}
-          caption={evaluatedOwnMaterials ? 'Your specification' : 'Typical local build'}
+          caption={language === 'ta' ? (evaluatedOwnMaterials ? 'உங்கள் விவரக்குறிப்பு' : 'வழக்கமான உள்ளூர் கட்டுமானம்') : evaluatedOwnMaterials ? 'Your specification' : 'Typical local build'}
           emphasis={evaluatedOwnMaterials}
           delay={0.1}
         />
@@ -104,19 +106,29 @@ export function ScoreComparison({
           <p className="tabular text-3xl font-semibold text-signal">
             {formatDelta(improvement)}
           </p>
-          <p className="text-[11px] uppercase tracking-[0.14em] text-ink-3">points</p>
+          <p className="text-[11px] uppercase tracking-[0.14em] text-ink-3">{language === 'ta' ? 'புள்ளிகள்' : 'points'}</p>
         </div>
 
         <Column
           scored={recommended}
-          caption={keepingProposed ? 'Keep your specification' : "What we'd specify"}
+          caption={language === 'ta' ? (keepingProposed ? 'உங்கள் விவரக்குறிப்பைத் தொடரவும்' : 'எங்கள் பரிந்துரை') : keepingProposed ? 'Keep your specification' : "What we'd specify"}
           emphasis={!evaluatedOwnMaterials}
           delay={0.25}
         />
       </div>
 
       <p className="mt-7 border-t border-white/10 pt-5 text-sm leading-relaxed text-ink-2">
-        {keepingProposed
+        {language === 'ta'
+          ? keepingProposed
+            ? 'உங்கள் விவரக்குறிப்பு ஏற்கனவே விதிமுறைகளைப் பூர்த்தி செய்து, எங்கள் வழக்கமான பரிந்துரையைவிட அதிக மதிப்பெண் பெற்றுள்ளது. இதையே தொடரலாம்.'
+            : proposed.compliant
+              ? improvement > 0
+                ? `உங்கள் விவரக்குறிப்பு விதிமுறைகளைப் பூர்த்தி செய்கிறது. வலதுபுறப் பரிந்துரைக்கு மாறினால் ${formatDelta(improvement)} புள்ளிகள் கிடைக்கும்.`
+                : 'வலதுபுறப் பரிந்துரை மதிப்பெண்ணை மேம்படுத்தாது.'
+              : improvement > 0
+                ? `உங்கள் விவரக்குறிப்பில் விதிமுறைத் தேவைகள் குறைவாக உள்ளன. வலதுபுறப் பரிந்துரைக்கு மாறினால் ${formatDelta(improvement)} புள்ளிகள் கிடைக்கும்.`
+                : 'உங்கள் விவரக்குறிப்பு ஒன்று அல்லது அதற்கு மேற்பட்ட விதிமுறைச் சரிபார்ப்புகளில் குறைவாக உள்ளது.'
+          : keepingProposed
           ? 'Your specification already meets the code and scores higher than our standard recommendation. We would keep it as specified.'
           : `${
               proposed.compliant
