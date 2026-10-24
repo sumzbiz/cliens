@@ -175,6 +175,7 @@ def to_selection(materials: MaterialSelectionInput | None) -> MaterialSelection 
 SERVICE_LIFE_BASIS = (
     "Estimated from IS 456's 50-year design life, adjusted for how this mix's "
     "water/cement ratio and compliance compare to the exposure class minimums. "
+    "Estimates above 50 years require passing all required checks. "
     "Not a prediction from observed building failures."
 )
 

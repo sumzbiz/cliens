@@ -109,6 +109,7 @@ class ScoredSelection:
             required_water_cement_ratio=required_ratio,
             provided_water_cement_ratio=provided_ratio,
             worst_other_shortfall_ratio=worst_shortfall,
+            code_compliant=self.assessment.compliant,
         )
 
     @property

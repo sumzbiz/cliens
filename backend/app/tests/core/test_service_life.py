@@ -135,6 +135,17 @@ class TestShortfallPenalty:
 
         assert surplus == pytest.approx(neutral)
 
+    def test_a_noncompliant_mix_cannot_exceed_the_design_life_baseline(self) -> None:
+        """A favorable w/c ratio must not erase a failed required code check."""
+        years = calculations.estimated_service_life_years(
+            required_water_cement_ratio=0.55,
+            provided_water_cement_ratio=0.40,
+            worst_other_shortfall_ratio=0.0,
+            code_compliant=False,
+        )
+
+        assert years == pytest.approx(constants.DESIGN_SERVICE_LIFE_YEARS)
+
 
 class TestBounds:
     """Outside these the model stops discriminating and must say so."""

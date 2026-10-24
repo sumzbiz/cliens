@@ -116,12 +116,16 @@ export function ServiceLifeComparison({
   const { language } = useLanguage();
   const gained = Math.round(recommended.service_life.years - proposed.service_life.years);
   const baseline = proposed.service_life.baseline_years;
+  const rangesOverlap =
+    proposed.service_life.lower_years <= recommended.service_life.upper_years &&
+    recommended.service_life.lower_years <= proposed.service_life.upper_years;
+  const difference = Math.abs(gained);
 
   return (
     <section aria-labelledby="life-heading" className="glass rounded-2xl p-6 sm:p-8">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 id="life-heading" className="text-base font-semibold text-ink-1">
-          {language === 'ta' ? 'எவ்வளவு காலம் நீடிக்கும்' : 'How long it should last'}
+          {language === 'ta' ? 'மதிப்பிடப்பட்ட சேவை ஆயுள்' : 'Estimated service life'}
         </h2>
         <p className="tabular text-xs text-ink-3">
           {language === 'ta' ? `விதிமுறை வடிவமைப்பு ஆயுள்: ${String(Math.round(baseline))} ஆண்டுகள்` : `code design life ${String(Math.round(baseline))} years`}
@@ -157,12 +161,24 @@ export function ServiceLifeComparison({
 
       <p className="mt-5 border-t border-white/10 pt-4 text-sm leading-relaxed text-ink-2">
         {language === 'ta'
-          ? gained > 0
-            ? `பரிந்துரைக்கப்பட்ட விவரக்குறிப்பு சுமார் ${String(gained)} ஆண்டுகள் கூடுதல் நீடிக்கும்.`
-            : 'பரிந்துரைக்கப்பட்ட விவரக்குறிப்பு ஆயுளை மேலும் நீட்டிக்காது.'
-          : gained > 0
-          ? `The recommended specification should serve about ${String(gained)} years longer.`
-          : 'The recommended specification would not extend this further.'}
+          ? rangesOverlap
+            ? gained < 0
+              ? 'உங்கள் கலவையின் மைய மதிப்பீடு அதிகம்; ஆனால் மதிப்பிடப்பட்ட கால வரம்புகள் ஒன்றுடன் ஒன்று பொருந்துவதால் தெளிவான ஆயுள் வேறுபாட்டைக் காட்டவில்லை. பரிந்துரை உள்ளூர் காலநிலைக்கான விதிமுறைத் தேவைகளைப் பூர்த்தி செய்ய உருவாக்கப்பட்டது; அதிகபட்ச ஆயுளை நோக்கி அல்ல.'
+              : gained > 0
+                ? 'பரிந்துரைக்கப்பட்ட கலவையின் மைய மதிப்பீடு அதிகம்; ஆனால் மதிப்பிடப்பட்ட கால வரம்புகள் ஒன்றுடன் ஒன்று பொருந்துவதால் தெளிவான ஆயுள் வேறுபாட்டைக் காட்டவில்லை. பரிந்துரை உள்ளூர் காலநிலைக்கான விதிமுறைத் தேவைகளைப் பூர்த்தி செய்ய உருவாக்கப்பட்டது; அதிகபட்ச ஆயுளை நோக்கி அல்ல.'
+                : 'மதிப்பிடப்பட்ட கால வரம்புகள் ஒன்றுடன் ஒன்று பொருந்துகின்றன; எனவே தெளிவான ஆயுள் வேறுபாட்டைக் காட்டவில்லை. பரிந்துரை உள்ளூர் காலநிலைக்கான விதிமுறைத் தேவைகளைப் பூர்த்தி செய்ய உருவாக்கப்பட்டது; அதிகபட்ச ஆயுளை நோக்கி அல்ல.'
+            : gained > 0
+              ? `பரிந்துரைக்கப்பட்ட விவரக்குறிப்பின் மதிப்பீடு சுமார் ${String(difference)} ஆண்டுகள் அதிகம்; இருப்பினும் இது கணிக்கப்பட்ட மதிப்பீடு மட்டுமே, உறுதியான ஆயுள் கணிப்பு அல்ல.`
+              : `உங்கள் விவரக்குறிப்பின் மதிப்பீடு சுமார் ${String(difference)} ஆண்டுகள் அதிகம். பரிந்துரை காலநிலை சார்ந்த விதிமுறைத் தேவைகளைப் பூர்த்தி செய்ய உருவாக்கப்பட்டது; அதிகபட்ச மதிப்பிடப்பட்ட ஆயுளுக்காக அல்ல.`
+          : rangesOverlap
+            ? gained < 0
+              ? 'Your mix has a higher point estimate, but the ranges overlap, so this does not show a clear service-life difference. The recommendation targets this climate’s code requirements; it is not designed to maximize this estimate.'
+              : gained > 0
+                ? 'The recommended mix has a higher point estimate, but the ranges overlap, so this does not show a clear service-life difference. The recommendation targets this climate’s code requirements; it is not designed to maximize this estimate.'
+                : 'The estimated ranges overlap and the point estimates are similar, so this does not show a clear service-life difference. The recommendation targets this climate’s code requirements; it is not designed to maximize this estimate.'
+            : gained > 0
+              ? `The recommended specification has an estimate about ${String(difference)} years higher. This is a code-anchored estimate, not a prediction of a building’s actual lifespan.`
+              : `Your specification has an estimate about ${String(difference)} years higher. The recommendation targets this climate’s code requirements; it is not designed to maximize this estimate.`}
       </p>
       <p className="mt-2 text-xs leading-relaxed text-ink-3">{proposed.service_life.basis}</p>
     </section>

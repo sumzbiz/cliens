@@ -480,6 +480,7 @@ def estimated_service_life_years(
     required_water_cement_ratio: float,
     provided_water_cement_ratio: float,
     worst_other_shortfall_ratio: float,
+    code_compliant: bool = True,
 ) -> float:
     """Years of service life this specification implies, from the code's baseline.
 
@@ -498,6 +499,9 @@ def estimated_service_life_years(
       further proportional reduction applies. Only the worst of those parameters
       counts — deficiencies here are not independent, and multiplying them would
       compound the same underlying problem twice.
+    * The compliance cap. An estimate above the code's design-life baseline is
+      only available when every required check passes. A favorable water/cement
+      ratio cannot erase a failed durability requirement.
 
     Args:
         required_water_cement_ratio: The exposure class maximum.
@@ -505,6 +509,7 @@ def estimated_service_life_years(
         worst_other_shortfall_ratio: How far the worst of the *other* durability
             parameters falls below its minimum, as a non-negative fraction of
             that minimum. Zero when everything else complies.
+        code_compliant: Whether the complete selection passes every required check.
 
     Returns:
         Years, clamped to the bounds in ``constants``.
@@ -523,11 +528,12 @@ def estimated_service_life_years(
     )
 
     years = constants.DESIGN_SERVICE_LIFE_YEARS * diffusion_factor * shortfall_factor
-    return clamp(
-        years,
-        constants.MIN_ESTIMATED_SERVICE_LIFE_YEARS,
-        constants.MAX_ESTIMATED_SERVICE_LIFE_YEARS,
+    maximum_years = (
+        constants.MAX_ESTIMATED_SERVICE_LIFE_YEARS
+        if code_compliant
+        else constants.DESIGN_SERVICE_LIFE_YEARS
     )
+    return clamp(years, constants.MIN_ESTIMATED_SERVICE_LIFE_YEARS, maximum_years)
 
 
 def service_life_interval(years: float) -> tuple[float, float]:
