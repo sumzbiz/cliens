@@ -134,7 +134,7 @@ export function PlaceSearch({
         <input
           type="search"
           className={`${CONTROL} glass pl-9`}
-          placeholder="Search a place, address or PIN code"
+          placeholder="Place, address or PIN code"
           aria-label="Search for a place"
           value={query}
           onFocus={() => {
@@ -182,7 +182,7 @@ export function PlaceSearch({
         )}
       </AnimatePresence>
 
-      <p className="mt-1.5 px-1 text-[10px] text-ink-3/70">
+      <p className="mt-1.5 inline-block rounded bg-black/55 px-1.5 py-0.5 text-[11px] text-ink-2">
         Place search © OpenStreetMap contributors
       </p>
     </div>

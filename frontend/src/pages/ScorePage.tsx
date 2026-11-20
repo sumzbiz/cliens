@@ -197,7 +197,7 @@ export default function ScorePage() {
                 onClick={() => {
                   setClimateOpen(true);
                 }}
-                className="text-sm font-medium text-atmos underline underline-offset-4"
+                className="inline-flex min-h-6 items-center text-sm font-medium text-atmos underline underline-offset-4"
               >
                 See the measurements
               </button>
@@ -216,13 +216,16 @@ export default function ScorePage() {
 
           <Panel className="p-6">
             <h2 className="text-base font-semibold text-ink-1">What we checked</h2>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[28rem] text-left text-sm">
+            {/* No minimum width: at phone width it pushed the Result column off
+                screen inside a sideways scroll. Below `sm` the two number columns
+                fold into the requirement cell instead, so the verdict always shows. */}
+            <div className="mt-4">
+              <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.12em] text-ink-3">
                     <th className="pb-2.5 font-medium">Requirement</th>
-                    <th className="pb-2.5 text-right font-medium">Code needs</th>
-                    <th className="pb-2.5 text-right font-medium">You have</th>
+                    <th className="hidden pb-2.5 text-right font-medium sm:table-cell">Code needs</th>
+                    <th className="hidden pb-2.5 text-right font-medium sm:table-cell">You have</th>
                     <th className="pb-2.5 text-right font-medium">Result</th>
                   </tr>
                 </thead>
@@ -237,27 +240,32 @@ export default function ScorePage() {
                         reduced === true ? { duration: 0 } : { delay: 0.05 * index, duration: 0.3 }
                       }
                     >
-                      <td className="py-2.5 text-ink-1">
+                      <td className="py-2.5 pr-3 text-ink-1">
                         {formatParameter(finding.parameter)}
-                        {!isSpecComparison(finding.parameter) && (
+                        {isSpecComparison(finding.parameter) ? (
+                          <span className="tabular mt-0.5 block text-xs text-ink-3 sm:hidden">
+                            Needs {formatFindingValue(finding.parameter, finding.required)} · you have{' '}
+                            {formatFindingValue(finding.parameter, finding.provided)}
+                          </span>
+                        ) : (
                           // This row is not a spec-versus-limit comparison, so the
                           // numeric columns are blank and the reason goes here
                           // instead — see `isSpecComparison`.
                           <span className="mt-0.5 block text-xs text-ink-3">{finding.message}</span>
                         )}
                       </td>
-                      <td className="tabular py-2.5 text-right text-ink-2">
+                      <td className="tabular hidden py-2.5 text-right text-ink-2 sm:table-cell">
                         {isSpecComparison(finding.parameter)
-                          ? formatFindingValue(finding.required)
+                          ? formatFindingValue(finding.parameter, finding.required)
                           : '—'}
                       </td>
-                      <td className="tabular py-2.5 text-right text-ink-2">
+                      <td className="tabular hidden py-2.5 text-right text-ink-2 sm:table-cell">
                         {isSpecComparison(finding.parameter)
-                          ? formatFindingValue(finding.provided)
+                          ? formatFindingValue(finding.parameter, finding.provided)
                           : '—'}
                       </td>
                       <td
-                        className={`py-2.5 text-right font-semibold ${
+                        className={`py-2.5 align-top text-right font-semibold ${
                           finding.compliant ? 'text-band-good' : 'text-band-poor'
                         }`}
                       >
@@ -407,14 +415,22 @@ function isSpecComparison(parameter: string): boolean {
 }
 
 /**
- * Trims a finding value to a sensible number of decimals.
+ * Formats a finding value in the unit a builder reads it in.
  *
  * These arrive as raw floats — a humidity of 81.41115885900099 was being printed
  * in full. Grades and cement contents are whole numbers; a water/cement ratio
- * needs two places.
+ * needs two places. A grade arrives as its strength in MPa, so it is shown as the
+ * grade name: a bare "35" next to "Concrete grade" reads as a quantity, not M35.
  */
-function formatFindingValue(value: number): string {
-  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
+function formatFindingValue(parameter: string, value: number): string {
+  const number = Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
+  if (parameter === 'concrete_grade_mpa') {
+    return `M${number}`;
+  }
+  if (parameter === 'cement_content_kg_m3') {
+    return `${number} kg/m³`;
+  }
+  return number;
 }
 
 function Measurement({ label, value }: { label: string; value: string }) {

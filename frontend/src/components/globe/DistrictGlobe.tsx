@@ -461,8 +461,9 @@ export function DistrictGlobe({
       )}
 
       {/* Attribution is a condition of using the tile service, so it is part of the
-          component rather than something a page can forget. */}
-      <p className="pointer-events-none absolute bottom-3 right-4 text-[10px] text-ink-3/60">
+          component rather than something a page can forget. It sits on imagery,
+          not a solid colour, so it carries its own backing to stay legible. */}
+      <p className="pointer-events-none absolute bottom-1 right-4 max-w-[min(22rem,52vw)] rounded bg-black/55 px-1.5 py-0.5 text-right text-[11px] text-ink-2">
         {attribution ?? 'Imagery © Esri, Maxar, Earthstar Geographics'}
       </p>
     </div>

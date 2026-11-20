@@ -405,12 +405,14 @@ export default function LocationPage() {
           stop a long line forcing the layout wider than the screen. */}
       {/* z-index above Leaflet's own panes, which go up to 1000. Without it the
           map paints over the search bar, the controls and the site panel — the
-          chrome is still in the DOM but completely hidden. */}
-      <div className="pointer-events-none absolute inset-0 z-[1100] flex flex-col justify-between gap-4 overflow-hidden p-[clamp(0.75rem,2vw,2rem)]">
+          chrome is still in the DOM but completely hidden. The bottom padding never
+          drops below 1.75rem: the globe's attribution line sits in that strip, and
+          with less room the Continue button covered it at tablet width. */}
+      <div className="pointer-events-none absolute inset-0 z-[1100] flex flex-col justify-between gap-4 overflow-hidden p-[clamp(0.75rem,2vw,2rem)] pb-[max(clamp(0.75rem,2vw,2rem),1.75rem)]">
         {/* Deliberately unbacked. A glass panel here reads as a card sitting on
             top of the earth and crops the very thing the page is for; legibility
-            over bright imagery is handled by the text shadow in `index.css`
-            instead, which costs no pixels. */}
+            over bright imagery is handled by `.map-chrome` in `index.css` instead —
+            a text shadow plus an edgeless vignette behind the text. */}
         <header className="map-chrome pointer-events-auto flex w-full min-w-0 max-w-[min(30rem,calc(100vw-6rem))] flex-col gap-[clamp(0.5rem,1.4vh,1.25rem)]">
           <StepRail />
           <div>
@@ -492,7 +494,7 @@ export default function LocationPage() {
                 onClick={() => {
                   setBrowsing(true);
                 }}
-                className="text-xs font-medium text-atmos underline underline-offset-4"
+                className="inline-flex min-h-6 items-center text-xs font-medium text-atmos underline underline-offset-4"
               >
                 Or pick a district
               </button>
@@ -503,7 +505,7 @@ export default function LocationPage() {
                     setArea(null);
                     resetSiteState();
                   }}
-                  className="text-xs font-medium text-ink-3 underline underline-offset-4"
+                  className="inline-flex min-h-6 items-center text-xs font-medium text-ink-3 underline underline-offset-4"
                 >
                   Clear
                 </button>
