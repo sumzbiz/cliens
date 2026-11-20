@@ -36,6 +36,5 @@ substitutions:
 options:
   # A user-specified build service account requires an explicit logging mode.
   logging: CLOUD_LOGGING_ONLY
-  machineType: E2_HIGHCPU_8
 
 timeout: 1800s
