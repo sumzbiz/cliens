@@ -413,6 +413,16 @@ WALLING_MISMATCH_PENALTY: Final[float] = -0.25
 RECOMMENDED_CEMENT_MARGIN_KG_M3: Final[float] = 20.0
 RECOMMENDED_WATER_CEMENT_MARGIN: Final[float] = 0.03
 
+# CODIFIED. The specification scored in recommend-only mode, standing in for what
+# a builder reaches for without advice: IS 456:2000 Table 5's reinforced-concrete
+# minimums for the Mild exposure class (M20, 300 kg/m3, w/c 0.55) — the code's
+# floor — in ordinary Portland cement with burnt clay brick walling.
+CONVENTIONAL_BASELINE_GRADE: Final[str] = "M20"
+CONVENTIONAL_BASELINE_CEMENT_KG_M3: Final[float] = 300.0
+CONVENTIONAL_BASELINE_WATER_CEMENT_RATIO: Final[float] = 0.55
+CONVENTIONAL_BASELINE_CEMENT_TYPE: Final[str] = "OPC"
+CONVENTIONAL_BASELINE_WALLING: Final[str] = "burnt_clay_brick"
+
 # CALIBRATED. Score bands used for the plain-language verdict in the report.
 SCORE_BAND_THRESHOLDS: Final[tuple[tuple[str, float], ...]] = (
     ("poor", 40.0),

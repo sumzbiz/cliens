@@ -13,6 +13,7 @@ import pytest
 
 from app.core import constants
 from app.ml.quality_score import QualityScoreModel
+from app.repositories.knowledge_base import load_knowledge_base
 from app.services.climate_data import ClimateDataService
 from app.services.rules_engine import (
     ClimateSummary,
@@ -114,3 +115,18 @@ class TestRecommendation:
 
         assert indoor.concrete.grade == "M20"
         assert outdoor.concrete.grade == "M30"
+
+
+class TestConventionalBaseline:
+    """Recommend-only mode compares the advice against the code's own floor."""
+
+    def test_baseline_is_the_is456_mild_minimum(self) -> None:
+        """The constants cite IS 456 Table 5's Mild row; hold them to it, so the
+        citation cannot go stale if the transcribed table is ever corrected."""
+        mild = load_knowledge_base().exposure_by_id("mild")
+
+        assert constants.CONVENTIONAL_BASELINE_GRADE == mild.min_grade
+        assert constants.CONVENTIONAL_BASELINE_CEMENT_KG_M3 == mild.min_cement_kg_m3
+        assert constants.CONVENTIONAL_BASELINE_WATER_CEMENT_RATIO == pytest.approx(
+            mild.max_water_cement_ratio
+        )

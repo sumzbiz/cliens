@@ -295,11 +295,11 @@ class QualityScoringService:
         """The specification a builder would reach for without advice."""
         return MaterialSelection(
             concrete=ConcreteMix(
-                grade="M20",
-                cement_content_kg_m3=300.0,
-                water_cement_ratio=0.55,
-                cement_type="OPC",
+                grade=constants.CONVENTIONAL_BASELINE_GRADE,
+                cement_content_kg_m3=constants.CONVENTIONAL_BASELINE_CEMENT_KG_M3,
+                water_cement_ratio=constants.CONVENTIONAL_BASELINE_WATER_CEMENT_RATIO,
+                cement_type=constants.CONVENTIONAL_BASELINE_CEMENT_TYPE,
             ),
-            walling_material_id="burnt_clay_brick",
+            walling_material_id=constants.CONVENTIONAL_BASELINE_WALLING,
             element_situation=situation,
         )
