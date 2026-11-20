@@ -8,13 +8,16 @@
  * instructions are executable rather than merely written down.
  *
  * Steps that need a third-party credential are reported as SKIPPED rather than
- * failed when that credential is absent, because an unconfigured Earth Engine or
- * Gemini key is a setup state, not a defect. Anything else failing is a real
- * failure and exits non-zero.
+ * failed when that credential is absent, because an unconfigured Sarvam key is a
+ * setup state, not a defect. Anything else failing is a real failure and exits
+ * non-zero.
  */
 const BASE_URL = process.env.SMOKE_BASE_URL ?? 'http://127.0.0.1:8010';
 
-/** A site in Chennai, near the Adyar estuary — the Cyclone Michaung framing. */
+/**
+ * A site in Chennai, near the Adyar estuary. Chennai is not a district in the
+ * measured grid, but a pin there resolves to the nearest cell (Tiruvallur).
+ */
 const CHENNAI_LON = 80.27;
 const CHENNAI_LAT = 13.01;
 const SIDE = 0.0004; // roughly 44 m at this latitude
@@ -60,7 +63,7 @@ async function call(method, path, body) {
 }
 
 async function main() {
-  process.stdout.write(`Climate Lien Score smoke test against ${BASE_URL}\n\n`);
+  process.stdout.write(`CLIENS smoke test against ${BASE_URL}\n\n`);
 
   // --- 1. Liveness ---------------------------------------------------------
   try {
@@ -122,61 +125,114 @@ async function main() {
     fail('server-computed area is plausible', `got ${String(areaSqFt)} sq ft, expected ~21,000`);
   }
 
-  // --- 5. Score ------------------------------------------------------------
-  const scoreRequest = {
-    site_id: site.payload.id,
-    materials: {
-      foundation: 'shallow_strip_footing_masonry',
-      walls: 'fired_clay_brick_masonry',
-      roofing: 'gi_sheet_roof',
+  // --- 5. District catalogue ---------------------------------------------
+  const districts = await call('GET', '/api/score/districts');
+  const madurai = districts.payload?.locations?.find((location) => location.name === 'Madurai');
+  if (districts.status === 200 && madurai !== undefined) {
+    pass('district catalogue', `${String(districts.payload.districts.length)} districts`);
+  } else {
+    fail('district catalogue', `status ${String(districts.status)}, Madurai missing`);
+    return summarise();
+  }
+
+  // --- 6. Score a specification -------------------------------------------
+  // A footing in soil: buried exposure, where clause 26.4.2.1's 50 mm footing
+  // minimum governs over Table 16, so the cover check is exercised for real.
+  const specification = {
+    concrete: {
+      grade: 'M30',
+      cement_content_kg_m3: 340,
+      water_cement_ratio: 0.45,
+      cement_type: 'PPC',
+      admixtures: [],
     },
+    walling_material_id: 'fly_ash_brick',
+    nominal_cover_mm: 40,
+    element_situation: 'buried',
   };
-  const proof = await call('POST', '/api/score/prove', scoreRequest);
-
-  if (proof.status === 503 && proof.payload?.error?.code === 'EXTERNAL_SERVICE_UNCONFIGURED') {
-    skip('score the site', `${proof.payload.error.details?.service ?? 'a service'} is not configured`);
-    skip('apply suggested materials', 'depends on scoring');
-    skip('generate report', 'depends on scoring');
-    return summarise();
-  }
-
-  if (proof.status !== 200) {
-    fail('score the site', `status ${String(proof.status)}: ${proof.payload?.error?.message ?? ''}`);
-    return summarise();
-  }
-
-  const baselineYear = proof.payload.baseline.crossing_year;
-  const improvedYear = proof.payload.improved.crossing_year;
-  pass('score the site', `crossing year ${baselineYear ?? 'beyond 2055'}`);
-
-  if (proof.payload.baseline.breakdown.years.length === 31) {
-    pass('breakdown covers 2025–2055', '31 years');
-  } else {
-    fail('breakdown covers 2025–2055', `${String(proof.payload.baseline.breakdown.years.length)} years`);
-  }
-
-  // The product's central claim: suggested materials must never make it worse.
-  const baseline = baselineYear ?? 9999;
-  const improved = improvedYear ?? 9999;
-  if (improved >= baseline) {
-    pass(
-      'suggested materials do not worsen the score',
-      improved > baseline ? `+${String(improved - baseline)} years` : 'no change'
-    );
-  } else {
-    fail('suggested materials do not worsen the score', `${String(baseline)} → ${String(improved)}`);
-  }
-
-  // --- 6. Report -----------------------------------------------------------
-  const report = await call('POST', '/api/reports', {
-    score_id: proof.payload.baseline.id,
+  const scored = await call('POST', '/api/score', {
+    district: 'Madurai',
+    materials: specification,
+    element_situation: 'buried',
+    member: 'footing',
   });
-  if (report.status === 503 && report.payload?.error?.code === 'EXTERNAL_SERVICE_UNCONFIGURED') {
-    skip('generate report', 'Gemini is not configured (set GEMINI_API_KEY)');
-  } else if (report.status === 201 && typeof report.payload?.content === 'string') {
-    pass('generate report', `${String(report.payload.content.length)} characters`);
+  if (scored.status !== 200) {
+    fail('score a specification', `status ${String(scored.status)}`);
+    return summarise();
+  }
+  const proposed = scored.payload.proposed;
+  pass('score a specification', `${String(proposed.score)} / 100, ${proposed.band}`);
+
+  const cover = proposed.findings.find((finding) => finding.parameter === 'nominal_cover_mm');
+  if (cover?.required === 50 && cover.compliant === false) {
+    pass('footing cover checked against clause 26.4.2.1', '40 mm short of 50 mm');
   } else {
-    fail('generate report', `status ${String(report.status)}`);
+    fail('footing cover checked against clause 26.4.2.1', JSON.stringify(cover));
+  }
+
+  if (scored.payload.recommended.compliant === true) {
+    pass('recommendation is compliant', `cover ${String(scored.payload.recommended.nominal_cover_mm)} mm`);
+  } else {
+    fail('recommendation is compliant', 'the advised specification fails its own checks');
+  }
+
+  const life = proposed.service_life;
+  if (life.lower_years <= life.years && life.years <= life.upper_years) {
+    pass('service life is a range', `${String(life.lower_years)}–${String(life.upper_years)} years`);
+  } else {
+    fail('service life is a range', JSON.stringify(life));
+  }
+
+  // --- 7. Score a drawn area ------------------------------------------------
+  const area = await call('POST', '/api/score/area', {
+    area: {
+      south: madurai.grid_latitude - 0.1,
+      north: madurai.grid_latitude + 0.1,
+      west: madurai.grid_longitude - 0.1,
+      east: madurai.grid_longitude + 0.1,
+    },
+    materials: specification,
+    element_situation: 'buried',
+    member: 'footing',
+  });
+  if (area.status === 200 && typeof area.payload?.climate_provenance?.interpolated === 'boolean') {
+    pass('score a drawn area', area.payload.climate_provenance.interpolated ? 'interpolated' : 'measured');
+  } else {
+    fail('score a drawn area', `status ${String(area.status)}`);
+  }
+
+  // --- 8. Report -----------------------------------------------------------
+  const report = await fetch(`${BASE_URL}/api/reports`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ district: 'Madurai', materials: specification, member: 'footing' }),
+  });
+  const pdf = new Uint8Array(await report.arrayBuffer());
+  const isPdf = String.fromCharCode(...pdf.slice(0, 5)) === '%PDF-';
+  if (report.status === 200 && isPdf) {
+    pass('download the PDF report', `${String(pdf.length)} bytes`);
+  } else {
+    fail('download the PDF report', `status ${String(report.status)}`);
+  }
+
+  // --- 9. Refusal outside coverage -----------------------------------------
+  // New Delhi is far from every measured cell: it must be refused as not covered,
+  // not answered with a confident reading borrowed from Tamil Nadu.
+  const outside = await call('POST', '/api/score/resolve', { latitude: 28.61, longitude: 77.21 });
+  if (outside.status === 404 && outside.payload?.error?.code === 'LOCATION_NOT_COVERED') {
+    pass('refuses a point outside coverage', 'LOCATION_NOT_COVERED');
+  } else {
+    fail('refuses a point outside coverage', `status ${String(outside.status)}`);
+  }
+
+  // --- 10. Voice -------------------------------------------------------------
+  const voice = await call('GET', '/api/voice/capabilities');
+  if (voice.status === 200 && voice.payload?.available === true) {
+    pass('Tamil narration available', voice.payload.speaker);
+  } else if (voice.status === 200) {
+    skip('Tamil narration', 'no usable Sarvam key (set SARVAM_API_KEY_PRIMARY)');
+  } else {
+    fail('voice capabilities', `status ${String(voice.status)}`);
   }
 
   return summarise();
