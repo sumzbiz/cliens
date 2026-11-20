@@ -193,6 +193,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/score/explain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explain a district score in plain language
+         * @description Explain the same comparison ``POST /score`` returns for this body.
+         */
+        post: operations["explain_score_api_score_explain_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/score/area/explain": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explain a drawn-area score in plain language
+         * @description Explain the same comparison ``POST /score/area`` returns for this body.
+         */
+        post: operations["explain_area_score_api_score_area_explain_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/reports": {
         parameters: {
             query?: never;
@@ -380,6 +420,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/climate/projection": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Mid-century climate outlook at a point (CMIP6, SSP2-4.5)
+         * @description Compare this decade with the decade a 30-year loan ends in, across models.
+         */
+        get: operations["get_projection_api_climate_projection_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/integrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Configured integrations
+         * @description Report which integrations have credentials. Never reveals the credentials.
+         */
+        get: operations["get_integrations_api_integrations_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -463,6 +543,16 @@ export interface components {
         ClimateProfileResponse: {
             /** District */
             district: string;
+            /**
+             * Grid Latitude
+             * @description Latitude of the climate cell scored (the area's centre for a drawn site).
+             */
+            grid_latitude: number;
+            /**
+             * Grid Longitude
+             * @description Longitude of the climate cell scored.
+             */
+            grid_longitude: number;
             /** Distance To Coast Km */
             distance_to_coast_km: number;
             /** Mean Relative Humidity Percent */
@@ -480,6 +570,34 @@ export interface components {
             wet_dry_cycles_per_year: number;
             /** Observation Days */
             observation_days: number;
+        };
+        /**
+         * ClimateProjectionResponse
+         * @description A mid-century outlook at a point. Context only: it does not feed the score.
+         */
+        ClimateProjectionResponse: {
+            /** Latitude */
+            latitude: number;
+            /** Longitude */
+            longitude: number;
+            /** Scenario */
+            scenario: string;
+            /** Models */
+            models: string[];
+            /** Baseline Years */
+            baseline_years: [
+                number,
+                number
+            ];
+            /** Future Years */
+            future_years: [
+                number,
+                number
+            ];
+            /** Variables */
+            variables: components["schemas"]["ProjectedVariableResponse"][];
+            /** Dataset */
+            dataset: string;
         };
         /**
          * ClimateProvenanceResponse
@@ -705,6 +823,27 @@ export interface components {
             error: components["schemas"]["ErrorDetail"];
         };
         /**
+         * ExplanationResponse
+         * @description A plain-language explanation of a score, checked against the assessment.
+         */
+        ExplanationResponse: {
+            /** Summary */
+            summary: string;
+            /** Points */
+            points: string[];
+            /**
+             * Model
+             * @description The Gemini model that wrote the text.
+             */
+            model: string;
+            /**
+             * Verified
+             * @description Always true: every number in the text was matched to a figure the rules engine computed. An explanation that fails the check is never returned.
+             * @default true
+             */
+            verified: boolean;
+        };
+        /**
          * GeocodeMatch
          * @description One place matched by a search.
          *
@@ -757,6 +896,16 @@ export interface components {
              * @description Share of heat loading resisted.
              */
             heat: number;
+        };
+        /**
+         * IntegrationsResponse
+         * @description Which optional Google integrations this server has credentials for.
+         */
+        IntegrationsResponse: {
+            /** Gemini Explanations */
+            gemini_explanations: boolean;
+            /** Earth Engine Projections */
+            earth_engine_projections: boolean;
         };
         /**
          * LivenessResponse
@@ -937,6 +1086,35 @@ export interface components {
                 number,
                 number
             ][][];
+        };
+        /**
+         * ProjectedVariableResponse
+         * @description One variable in both decades, with the spread of the change across models.
+         */
+        ProjectedVariableResponse: {
+            /** Name */
+            name: string;
+            /** Unit */
+            unit: string;
+            /** Baseline */
+            baseline: number;
+            /** Future */
+            future: number;
+            /**
+             * Change
+             * @description Multi-model mean change, future minus baseline.
+             */
+            change: number;
+            /**
+             * Change Low
+             * @description Smallest change any model projects.
+             */
+            change_low: number;
+            /**
+             * Change High
+             * @description Largest change any model projects.
+             */
+            change_high: number;
         };
         /**
          * ReadinessResponse
@@ -1522,6 +1700,144 @@ export interface operations {
             };
         };
     };
+    explain_score_api_score_explain_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExplanationResponse"];
+                };
+            };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request did not match the expected shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Gemini failed, or its explanation cited a figure not in the assessment and was discarded. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Explanations are not configured, or climate data is not loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    explain_area_score_api_score_area_explain_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AreaScoreRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExplanationResponse"];
+                };
+            };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request did not match the expected shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Gemini failed, or its explanation cited a figure not in the assessment and was discarded. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Explanations are not configured, or climate data is not loaded. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     download_report_api_reports_post: {
         parameters: {
             query?: never;
@@ -1869,6 +2185,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_projection_api_climate_projection_get: {
+        parameters: {
+            query: {
+                /** @description WGS84 latitude, degrees. */
+                latitude: number;
+                /** @description WGS84 longitude, degrees. */
+                longitude: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClimateProjectionResponse"];
+                };
+            };
+            /** @description The projection dataset has no values at this point. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Earth Engine failed. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Earth Engine is not configured on this server. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Earth Engine did not answer in time. */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_integrations_api_integrations_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IntegrationsResponse"];
                 };
             };
             /** @description Error */

@@ -7,10 +7,15 @@ the suite rather than only failing in production.
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from typing import Any
 
 import pytest
 from httpx import AsyncClient
+
+from app.core.exceptions import ExternalServiceUnconfiguredError
+from app.external import gemini
+from app.services import explanation
 
 pytestmark = pytest.mark.integration
 
@@ -451,3 +456,48 @@ class TestReportDownload:
         response = await client.post("/api/reports", json={"district": "Atlantis"})
 
         assert response.status_code == 404
+
+
+class TestExplain:
+    """The explain endpoints relay the service's verified text or its typed error."""
+
+    @pytest.fixture(autouse=True)
+    def fresh_cache(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Each test starts with an empty explanation cache."""
+        monkeypatch.setattr(explanation, "_CACHE", OrderedDict())
+
+    async def test_returns_a_verified_explanation(
+        self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        async def fake(**_: object) -> dict[str, Any]:
+            return {"summary": "The cover falls short.", "points": ["Raise it."]}
+
+        monkeypatch.setattr(gemini, "generate_json", fake)
+
+        response = await client.post(
+            "/api/score/explain", json={"district": "Coimbatore", "materials": WEAK_SPEC}
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["summary"] == "The cover falls short."
+        assert body["verified"] is True
+
+    async def test_unconfigured_gemini_is_a_503(
+        self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        async def unconfigured(**_: object) -> dict[str, Any]:
+            raise ExternalServiceUnconfiguredError("not configured", service="gemini")
+
+        monkeypatch.setattr(gemini, "generate_json", unconfigured)
+
+        response = await client.post(
+            "/api/score/area/explain",
+            json={
+                "area": {"south": 10.95, "north": 11.05, "west": 76.9, "east": 77.0},
+                "materials": WEAK_SPEC,
+            },
+        )
+
+        assert response.status_code == 503
+        assert response.json()["error"]["code"] == "EXTERNAL_SERVICE_UNCONFIGURED"

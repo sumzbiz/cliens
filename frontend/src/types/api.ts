@@ -37,6 +37,10 @@ export type MemberType = ScoredSelection['member'];
 export type MaterialCatalogue = Schemas['MaterialCatalogueResponse'];
 export type MaterialResponse = Schemas['MaterialResponse'];
 export type ErrorResponse = Schemas['ErrorResponse'];
+export type Explanation = Schemas['ExplanationResponse'];
+export type ClimateProjection = Schemas['ClimateProjectionResponse'];
+export type ProjectedVariable = Schemas['ProjectedVariableResponse'];
+export type Integrations = Schemas['IntegrationsResponse'];
 
 /** How the element sits relative to the weather, with plain-language labels. */
 export const ELEMENT_SITUATIONS: { value: ElementSituation; label: string; hint: string }[] = [

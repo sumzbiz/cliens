@@ -9,6 +9,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { ClimateOutlookPanel, ExplanationPanel } from '@/components/GoogleInsights';
 import { PageShell } from '@/components/Shell';
 import { VoiceExplainer } from '@/components/VoiceExplainer';
 import { scoreNarration } from '@/lib/narration.ta';
@@ -23,7 +24,7 @@ import { formatParameter, formatPercent, isSpecComparison } from '@/lib/format';
 import { boundsOf } from '@/lib/geo';
 import { specChanges } from '@/lib/spec-changes';
 import { useSession, type SiteSpecification } from '@/state/session-context';
-import type { MaterialSelectionInput, ScoreResponse } from '@/types/api';
+import type { Integrations, MaterialSelectionInput, ScoreResponse } from '@/types/api';
 
 /**
  * The materials payload, or null.
@@ -63,15 +64,54 @@ export default function ScorePage() {
   const [result, setResult] = useState<ScoreResponse | null>(null);
   const [error, setError] = useState<unknown>(null);
   const [climateOpen, setClimateOpen] = useState(false);
+  const [integrations, setIntegrations] = useState<Integrations | null>(null);
   const voice = useVoice();
+
+  // Optional panels are offered only when the server can serve them; a failure to
+  // ask simply leaves them hidden, since the score does not depend on either.
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .getIntegrations()
+      .then((available) => {
+        if (!cancelled) {
+          setIntegrations(available);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIntegrations(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const explain = useCallback(() => {
+    const outlineBounds = area === null ? null : boundsOf(area);
+    return outlineBounds !== null
+      ? apiClient.explainArea(outlineBounds, materialsPayload(spec), spec.situation, spec.member)
+      : apiClient.explain(spec.district, materialsPayload(spec), spec.situation, spec.member);
+  }, [spec, area]);
 
   // Two report endpoints for the same reason there are two score endpoints: a
   // drawn outline has no district name, and the district report requires one.
   const report = useAction(async (): Promise<Blob> => {
     const outlineBounds = area === null ? null : boundsOf(area);
     return outlineBounds !== null
-      ? apiClient.downloadAreaReport(outlineBounds, materialsPayload(spec), spec.situation, spec.member)
-      : apiClient.downloadReport(spec.district, materialsPayload(spec), spec.situation, spec.member);
+      ? apiClient.downloadAreaReport(
+          outlineBounds,
+          materialsPayload(spec),
+          spec.situation,
+          spec.member
+        )
+      : apiClient.downloadReport(
+          spec.district,
+          materialsPayload(spec),
+          spec.situation,
+          spec.member
+        );
   });
 
   useEffect(() => {
@@ -209,6 +249,19 @@ export default function ScorePage() {
             evaluatedOwnMaterials={spec.evaluateOwnMaterials}
           />
 
+          {integrations?.gemini_explanations === true && <ExplanationPanel load={explain} />}
+
+          {integrations?.earth_engine_projections === true && (
+            <ClimateOutlookPanel
+              load={() =>
+                apiClient.getClimateProjection(
+                  result.climate.grid_latitude,
+                  result.climate.grid_longitude
+                )
+              }
+            />
+          )}
+
           <Panel className="p-6">
             <div className="flex flex-wrap items-baseline justify-between gap-3">
               <h2 className="text-base font-semibold text-ink-1">
@@ -246,7 +299,9 @@ export default function ScorePage() {
                 <thead>
                   <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.12em] text-ink-3">
                     <th className="pb-2.5 font-medium">Requirement</th>
-                    <th className="hidden pb-2.5 text-right font-medium sm:table-cell">Code needs</th>
+                    <th className="hidden pb-2.5 text-right font-medium sm:table-cell">
+                      Code needs
+                    </th>
                     <th className="hidden pb-2.5 text-right font-medium sm:table-cell">You have</th>
                     <th className="pb-2.5 text-right font-medium">Result</th>
                   </tr>
@@ -266,8 +321,8 @@ export default function ScorePage() {
                         {formatParameter(finding.parameter)}
                         {isSpecComparison(finding.parameter) ? (
                           <span className="tabular mt-0.5 block text-xs text-ink-3 sm:hidden">
-                            Needs {formatFindingValue(finding.parameter, finding.required)} · you have{' '}
-                            {formatFindingValue(finding.parameter, finding.provided)}
+                            Needs {formatFindingValue(finding.parameter, finding.required)} · you
+                            have {formatFindingValue(finding.parameter, finding.provided)}
                           </span>
                         ) : (
                           // This row is not a spec-versus-limit comparison, so the

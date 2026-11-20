@@ -22,9 +22,9 @@ say() { printf '\n\033[1;36m==> %s\033[0m\n' "$1"; }
 
 need_output() {
   local value
-  value="$(terraform -chdir=infra output -raw "$1" 2>/dev/null || true)"
+  value="$(terraform -chdir=infra/aws output -raw "$1" 2>/dev/null || true)"
   if [[ -z "$value" ]]; then
-    echo "Missing Terraform output '$1'. Run 'terraform -chdir=infra apply' first." >&2
+    echo "Missing Terraform output '$1'. Run 'terraform -chdir=infra/aws apply' first." >&2
     exit 1
   fi
   printf '%s' "$value"

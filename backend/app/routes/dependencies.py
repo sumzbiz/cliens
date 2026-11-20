@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.database import get_session
+from app.external.earth_engine import EarthEngineClient, EarthEngineCredentials
 from app.external.sarvam import SarvamTtsClient
 from app.ml.quality_score import QualityScoreModel
 from app.ml.registry import get_registry
@@ -22,6 +23,8 @@ from app.repositories.knowledge_base import load_knowledge_base
 from app.repositories.materials import MaterialRepository
 from app.repositories.sites import SiteRepository
 from app.services.climate_data import ClimateDataService
+from app.services.climate_projection import ClimateProjectionService
+from app.services.explanation import ExplanationService
 from app.services.materials import MaterialService
 from app.services.narration import NarrationService
 from app.services.scoring import QualityScoringService
@@ -104,3 +107,41 @@ def get_site_service(session: SessionDep) -> SiteService:
 
 
 SiteServiceDep = Annotated[SiteService, Depends(get_site_service)]
+
+
+def get_explanation_service(
+    scoring: ScoringServiceDep, settings: SettingsDep
+) -> ExplanationService:
+    """Provide the explanation service, bound to the scoring engine and Gemini settings."""
+    return ExplanationService(
+        scoring=scoring, api_key=settings.gemini_api_key, model=settings.gemini_model
+    )
+
+
+ExplanationServiceDep = Annotated[ExplanationService, Depends(get_explanation_service)]
+
+
+@lru_cache(maxsize=1)
+def _earth_engine_client(credentials: EarthEngineCredentials | None) -> EarthEngineClient:
+    """Build the Earth Engine client once per configuration.
+
+    Cached because authenticating is a network round trip; it happens on the
+    first projection request and is then reused for the life of the process.
+    """
+    return EarthEngineClient(credentials)
+
+
+def get_projection_service(settings: SettingsDep) -> ClimateProjectionService:
+    """Provide the climate outlook service, bound to the Earth Engine settings."""
+    credentials = None
+    if settings.earth_engine_configured and settings.earth_engine_project_id:
+        use_key = not settings.earth_engine_use_application_default
+        credentials = EarthEngineCredentials(
+            project_id=settings.earth_engine_project_id,
+            service_account_email=settings.earth_engine_service_account_email if use_key else None,
+            service_account_file=settings.earth_engine_service_account_file if use_key else None,
+        )
+    return ClimateProjectionService(_earth_engine_client(credentials))
+
+
+ProjectionServiceDep = Annotated[ClimateProjectionService, Depends(get_projection_service)]

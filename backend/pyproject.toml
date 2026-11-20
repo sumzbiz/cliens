@@ -41,6 +41,10 @@ dependencies = [
     "joblib==1.4.2",
     # PDF generation for the downloadable client report.
     "reportlab==5.0.0",
+    # Earth Engine client for CMIP6 climate projections. Pinned like every other
+    # dependency; it pulls in google-auth, which also serves application-default
+    # credentials on Cloud Run.
+    "earthengine-api==1.7.53",
 ]
 
 [project.optional-dependencies]
@@ -126,7 +130,7 @@ exclude = ["/db/migrations/"]
 [[tool.mypy.overrides]]
 # These distributions ship no type information. Ignoring the missing stubs is
 # scoped to the import itself; our own wrappers around them remain fully typed.
-module = ["geoalchemy2.*", "sklearn.*", "joblib.*", "reportlab.*", "eccodes.*"]
+module = ["geoalchemy2.*", "sklearn.*", "joblib.*", "reportlab.*", "eccodes.*", "ee.*", "google.auth.*"]
 ignore_missing_imports = true
 
 # ---------------------------------------------------------------------------

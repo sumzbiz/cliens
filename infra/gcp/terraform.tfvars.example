@@ -1,0 +1,15 @@
+# Copy to terraform.tfvars (gitignored) and adjust. No secret belongs in this
+# file: the database password is generated, and API keys go from your local .env
+# to Secret Manager through deploy/gcp/deploy.sh.
+#
+#     cp infra/gcp/terraform.tfvars.example infra/gcp/terraform.tfvars
+
+project_id = "your-project-id"
+region     = "asia-south1"
+
+# Alerts for the uptime check and the backend 5xx rate. Leave empty for none.
+alert_email = ""
+
+# db_tier             = "db-g1-small"
+# api_min_instances   = 0     # 1 removes cold starts, at the cost of an always-on instance
+# deletion_protection = true  # set false only to destroy deliberately

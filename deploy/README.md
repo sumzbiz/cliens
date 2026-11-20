@@ -22,18 +22,18 @@ and recomposited server-side) so it would be metered on top.
 ## First deploy
 
 ```bash
-cp infra/terraform.tfvars.example infra/terraform.tfvars
+cp infra/aws/terraform.tfvars.example infra/aws/terraform.tfvars
 # fill in postgres_password, and the Sarvam keys if you want the Tamil voice
 
-terraform -chdir=infra init
-terraform -chdir=infra apply
+terraform -chdir=infra/aws init
+terraform -chdir=infra/aws apply
 
 bash deploy/deploy.sh
 ```
 
 `apply` takes about two minutes. `deploy.sh` takes five to ten the first time —
 it builds the backend image on the instance — and about two after that. The URL
-is printed at the end, and is also `terraform -chdir=infra output url`.
+is printed at the end, and is also `terraform -chdir=infra/aws output url`.
 
 ## Deploying again
 
@@ -49,7 +49,7 @@ separate step and no manual database work.
 
 1. Point an `A` record at the `public_ip` output.
 2. Set `public_host = "app.example.com"` in `terraform.tfvars`.
-3. `terraform -chdir=infra apply` then `bash deploy/deploy.sh`.
+3. `terraform -chdir=infra/aws apply` then `bash deploy/deploy.sh`.
 
 Caddy obtains and renews a Let's Encrypt certificate on its own. Worth doing:
 without HTTPS the browser will not treat the site as a secure context, which
@@ -58,8 +58,8 @@ restricts geolocation and some audio behaviour.
 ## Looking at it when something is wrong
 
 ```bash
-aws ssm start-session --target "$(terraform -chdir=infra output -raw instance_id)" \
-  --region "$(terraform -chdir=infra output -raw region)"
+aws ssm start-session --target "$(terraform -chdir=infra/aws output -raw instance_id)" \
+  --region "$(terraform -chdir=infra/aws output -raw region)"
 
 sudo docker compose -f /opt/bqs/docker-compose.yml logs --tail 200 -f
 ```
@@ -69,7 +69,7 @@ No open SSH port, no key pair, and every session is recorded in CloudTrail.
 ## Tearing it down
 
 ```bash
-terraform -chdir=infra destroy
+terraform -chdir=infra/aws destroy
 ```
 
 This deletes the database volume with the instance. Saved sites are not backed
