@@ -7,6 +7,8 @@
 .env.*
 !.env.example
 *-service-account*.json
+service_account*.json
+credentials/
 [a-z]*-[0-9]*-[0-9a-f]*.json
 
 # The 129 MB source record and everything derived from it. Nothing at run time

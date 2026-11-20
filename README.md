@@ -297,13 +297,39 @@ database. Port 80 must be free.
 
 ## 9. Deployment
 
+### Google Cloud (primary) — [`infra/gcp/`](infra/gcp/)
+
+One command after the human-only steps (`gcloud auth login`, `gcloud auth
+application-default login`, billing enabled, project registered for Earth Engine):
+
+```bash
+PROJECT_ID=your-project deploy/gcp/deploy.sh   # bootstrap → secrets → build → apply → verify
+```
+
+| Piece | Service |
+| --- | --- |
+| Frontend (Caddy: SPA + `/api` proxy) | Cloud Run `cliens-web`, public |
+| Backend (FastAPI) | Cloud Run `cliens-api`, **ingress internal-only** — reachable only through the frontend over Direct VPC egress |
+| Database | Cloud SQL PostgreSQL 16, **private IP only**; PostGIS created by the backend's entrypoint |
+| Network | VPC + subnet with Private Google Access, private services access peering |
+| Secrets | Secret Manager. The DB password is a Terraform `random_password`; API keys go from your local `.env` to Secret Manager over stdin and never touch Terraform state |
+| Images | Cloud Build (dedicated service account) → Artifact Registry, tagged by git commit, auto-cleaned |
+| Identity | One service account per workload, least privilege; Earth Engine via the backend's own identity (ADC) — **no key file exists in the deployment** |
+| Observability | Cloud Logging with severity + per-request trace, uptime check on `/api/health/ready`, alerts on downtime and 5xx rate, a log metric for rejected explanations, request logs exported to BigQuery |
+
+State lives in a versioned GCS bucket (`<project>-tfstate`) that the script creates
+before `terraform init`. Each step can also be run alone, e.g.
+`deploy/gcp/deploy.sh build`.
+
+### AWS (alternative) — [`infra/aws/`](infra/aws/)
+
 Fully automated with **Terraform** — nothing is created by hand in the AWS console,
 and there is no SSH key to manage.
 
 ```bash
-cp infra/terraform.tfvars.example infra/terraform.tfvars   # fill in secrets
-terraform -chdir=infra init
-terraform -chdir=infra apply      # creates 19 AWS resources
+cp infra/aws/terraform.tfvars.example infra/aws/terraform.tfvars   # fill in secrets
+terraform -chdir=infra/aws init
+terraform -chdir=infra/aws apply  # creates 19 AWS resources
 bash deploy/deploy.sh             # builds, uploads, starts — prints the URL
 ```
 
@@ -395,9 +421,23 @@ placeholder tiles. Restoring zoom 20–22 needs the Mapbox account fixed.
 **Coverage is Tamil Nadu only** — 37 districts, bounded by the source GRIB extent
 (8.25–13.0°N, 76.75–80.0°E). Anywhere outside is refused, not guessed.
 
-**Deployment is single-instance.** No horizontal scaling (caches are per-process),
-no automated database backups, and the instance is a single point of failure.
-Acceptable for a demo; documented rather than hidden.
+**The AWS deployment is single-instance.** No horizontal scaling (caches are
+per-process), no automated database backups, and the instance is a single point
+of failure. The GCP deployment scales and backs up, but its caches and rate
+limiter are still per-instance, so limits apply per instance, not globally.
+
+**Cloud SQL accepts unencrypted connections inside the VPC.** It has no public IP
+and traffic stays on Google's private peering, but TLS is not enforced: doing so
+needs driver-specific options in both connection URLs (asyncpg and psycopg spell
+them differently).
+
+**The climate outlook is slow the first time.** An Earth Engine CMIP6 outlook for a
+new place takes 25–40 s; repeats within ~1 km are served from cache. It is context
+only and never changes the score.
+
+**Explanations depend on Gemini being up.** When Gemini fails, or writes a figure
+the engine did not compute, the explanation is refused with an error rather than
+shown; the score and every finding are unaffected.
 
 **CLIENS is not a substitute for a licensed engineer.** It is a decision-support tool.
 
@@ -410,7 +450,7 @@ This repository is the documentation and the proof of work for our submission.
 | Evidence | Where |
 | --- | --- |
 | Live deployment | http://13.234.43.91 |
-| Infrastructure as code | [`infra/`](infra/) — 19 AWS resources, zero console clicks |
+| Infrastructure as code | [`infra/gcp/`](infra/gcp/) (Google Cloud) and [`infra/aws/`](infra/aws/) — zero console clicks |
 | Deployment pipeline | [`deploy/`](deploy/) |
 | Offline data pipeline | [`ml/`](ml/) — GRIB → CSV → district profiles → model |
 | Backend | [`backend/app/`](backend/app/) — strict `routes → services → repositories → core` layering |

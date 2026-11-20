@@ -1,7 +1,7 @@
 # Copy to terraform.tfvars and fill in. That file is gitignored — it holds real
 # secrets and must never be committed.
 #
-#     cp infra/terraform.tfvars.example infra/terraform.tfvars
+#     cp infra/aws/terraform.tfvars.example infra/aws/terraform.tfvars
 
 # Mumbai is closest to the districts this scores. Change only if you have a
 # reason to; everything else here is region-agnostic.

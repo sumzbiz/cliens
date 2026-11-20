@@ -1,0 +1,47 @@
+# What `gcloud builds submit` uploads. Without this file gcloud would derive the
+# list from .gitignore; this is explicit so secrets are excluded by name and the
+# 100+ MB of local tooling is never uploaded.
+
+# Secrets
+.env
+.env.*
+!.env.example
+credentials/
+*-service-account*.json
+service_account*.json
+[a-z]*-[0-9]*-[0-9a-f]*.json
+gcp-key*.json
+
+# Infrastructure state and local tooling
+infra/
+.terraform/
+*.tfstate*
+*.tfvars
+.git/
+.github/
+.vscode/
+.idea/
+.claude/
+
+# Large data not needed by any image
+*.grib
+*.grib2
+*.grib.*.idx
+*.nc
+*.nc4
+ml/data/
+docs/
+
+# Build outputs and caches
+node_modules/
+frontend/dist/
+**/__pycache__/
+backend/.venv/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+test-results/
+playwright-report/
