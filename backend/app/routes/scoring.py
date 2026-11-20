@@ -20,6 +20,7 @@ from app.schemas.scoring import (
     ClimateProvenanceResponse,
     ComplianceFindingResponse,
     DistrictListResponse,
+    ElementSituation,
     MaterialSelectionInput,
     MemberType,
     PinRequest,
@@ -112,7 +113,7 @@ async def create_score(request: ScoreRequest, service: ScoringServiceDep) -> Sco
     Supplying ``materials`` evaluates them. Omitting it returns the recommendation
     against a conventional baseline, so a before/after always exists.
     """
-    proposed = to_selection(request.materials, request.member)
+    proposed = to_selection(request.materials, request.member, request.element_situation)
     comparison = service.compare(
         district=request.district,
         proposed=proposed,
@@ -143,7 +144,7 @@ async def create_area_score(request: AreaScoreRequest, service: ScoringServiceDe
             west=request.area.west,
             east=request.area.east,
         ),
-        proposed=to_selection(request.materials, request.member),
+        proposed=to_selection(request.materials, request.member, request.element_situation),
         situation=request.element_situation,
         member=request.member,
     )
@@ -159,12 +160,16 @@ async def create_area_score(request: AreaScoreRequest, service: ScoringServiceDe
 
 
 def to_selection(
-    materials: MaterialSelectionInput | None, member: MemberType
+    materials: MaterialSelectionInput | None,
+    member: MemberType,
+    situation: ElementSituation,
 ) -> MaterialSelection | None:
     """Map the request body onto the engine's input type.
 
     Shared with the report endpoint, which takes the same body — defined once so
-    the two cannot drift apart.
+    the two cannot drift apart. The situation is the request's top-level one, the
+    same the recommendation and the exposure class are built from; the nested copy
+    has already been checked against it.
     """
     if materials is None:
         return None
@@ -178,7 +183,7 @@ def to_selection(
         ),
         walling_material_id=materials.walling_material_id,
         nominal_cover_mm=materials.nominal_cover_mm,
-        element_situation=materials.element_situation,
+        element_situation=situation,
         member=member,
     )
 

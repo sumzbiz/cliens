@@ -79,6 +79,29 @@ class MaterialSelectionInput(SchemaBase):
     element_situation: ElementSituation = "exposed"
 
 
+def _require_one_situation(
+    situation: ElementSituation, materials: MaterialSelectionInput | None
+) -> None:
+    """Reject a request whose two element situations disagree.
+
+    The situation appears at the top level and, for compatibility, inside
+    ``materials``. They used to be read separately: with the nested one omitted
+    it defaulted to "exposed", so the user's specification was judged against a
+    different exposure class than the recommendation and the page header in the
+    same response. The top level is now the only one used; an explicit nested
+    value that contradicts it is an error rather than a silent override.
+    """
+    if (
+        materials is not None
+        and "element_situation" in materials.model_fields_set
+        and materials.element_situation != situation
+    ):
+        raise ValueError(
+            f"materials.element_situation ({materials.element_situation!r}) contradicts "
+            f"element_situation ({situation!r}); send it once, at the top level"
+        )
+
+
 class ScoreRequest(SchemaBase):
     """Score a district.
 
@@ -93,6 +116,11 @@ class ScoreRequest(SchemaBase):
     member: MemberType = Field(
         default="beam", description="The reinforced-concrete member, which sets its cover."
     )
+
+    @model_validator(mode="after")
+    def _situations_agree(self) -> ScoreRequest:
+        _require_one_situation(self.element_situation, self.materials)
+        return self
 
 
 class ComplianceFindingResponse(SchemaBase):
@@ -274,6 +302,11 @@ class AreaScoreRequest(SchemaBase):
     member: MemberType = Field(
         default="beam", description="The reinforced-concrete member, which sets its cover."
     )
+
+    @model_validator(mode="after")
+    def _situations_agree(self) -> AreaScoreRequest:
+        _require_one_situation(self.element_situation, self.materials)
+        return self
 
 
 class ClimateProvenanceResponse(SchemaBase):

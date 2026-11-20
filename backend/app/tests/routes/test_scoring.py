@@ -222,6 +222,64 @@ class TestDeterminism:
         assert first["recommended"]["score"] == second["recommended"]["score"]
 
 
+class TestOneSituation:
+    """The user's specification and the advice are judged in the same situation."""
+
+    async def test_an_omitted_nested_situation_follows_the_top_level(
+        self, client: AsyncClient
+    ) -> None:
+        """It used to default to "exposed" while the advice used "buried"."""
+        materials = {k: v for k, v in STRONG_SPEC.items() if k != "element_situation"}
+        response = await client.post(
+            "/api/score",
+            json={"district": "Madurai", "materials": materials, "element_situation": "buried"},
+        )
+
+        body = response.json()
+
+        def required_grade(side: str) -> float:
+            finding = next(
+                f for f in body[side]["findings"] if f["parameter"] == "concrete_grade_mpa"
+            )
+            grade: float = finding["required"]
+            return grade
+
+        assert response.status_code == 200
+        assert required_grade("proposed") == required_grade("recommended")
+
+    @pytest.mark.parametrize("path", ["/api/score", "/api/reports"])
+    async def test_a_contradicting_nested_situation_is_rejected(
+        self, client: AsyncClient, path: str
+    ) -> None:
+        materials = {**STRONG_SPEC, "element_situation": "exposed"}
+        response = await client.post(
+            path,
+            json={"district": "Madurai", "materials": materials, "element_situation": "buried"},
+        )
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+class TestAdviceNeverWorse:
+    """An over-specified build is told so, not "improved" downwards."""
+
+    async def test_over_specification_returns_the_same_specification(
+        self, client: AsyncClient
+    ) -> None:
+        over = {
+            **STRONG_SPEC,
+            "concrete": {**STRONG_SPEC["concrete"], "grade": "M45", "water_cement_ratio": 0.35},
+            "nominal_cover_mm": 75,
+        }
+        response = await client.post("/api/score", json={"district": "Salem", "materials": over})
+
+        body = response.json()
+        assert body["improvement"] == 0
+        for field in ("concrete", "nominal_cover_mm", "walling_material_id"):
+            assert body["recommended"][field] == body["proposed"][field]
+
+
 class TestValidation:
     """District and material inputs are untrusted."""
 
