@@ -1,0 +1,40 @@
+# The build context is the repository root, so everything large or secret that is
+# not needed inside the image has to be excluded explicitly.
+
+# Secrets. These are injected as environment variables at run time and must never
+# be baked into a layer — a committed image is as readable as a committed file.
+.env
+.env.*
+!.env.example
+*-service-account*.json
+[a-z]*-[0-9]*-[0-9a-f]*.json
+
+# The 129 MB source record and everything derived from it. Nothing at run time
+# reads these: the app reads the small district profile bundle that ships inside
+# backend/app/repositories/data/.
+*.grib
+*.grib.*.idx
+ml/data/
+
+# Build outputs and caches
+node_modules/
+frontend/dist/
+frontend/node_modules/
+**/__pycache__/
+**/*.pyc
+backend/.venv/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Repository metadata and local tooling
+.git/
+.github/
+.vscode/
+.idea/
+
+# Tests are not run from the image; the CI job runs them from the checkout.
+backend/app/tests/

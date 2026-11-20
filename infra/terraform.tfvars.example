@@ -1,0 +1,35 @@
+# Copy to terraform.tfvars and fill in. That file is gitignored — it holds real
+# secrets and must never be committed.
+#
+#     cp infra/terraform.tfvars.example infra/terraform.tfvars
+
+# Mumbai is closest to the districts this scores. Change only if you have a
+# reason to; everything else here is region-agnostic.
+aws_region = "ap-south-1"
+
+# Generate a long random one, for example:
+#   python -c "import secrets; print(secrets.token_urlsafe(32))"
+postgres_password = "CHANGE-ME"
+
+# Optional. Without these the Listen buttons and the Tamil toggle simply do not
+# appear, and every question stays fully usable as text.
+sarvam_api_key_primary   = ""
+sarvam_api_key_secondary = ""
+
+# Optional. Raises the satellite imagery ceiling from zoom 19 to 22. This is the
+# only metered service in the app — leaving it blank costs nothing and keeps the
+# free Esri imagery.
+mapbox_access_token = ""
+
+# A domain you control gets an automatic Let's Encrypt certificate. Point its A
+# record at the `public_ip` output first, then set this and re-apply.
+#
+# Left as ":80", the site is served over plain HTTP on the Elastic IP. That works
+# for a demo, but browsers do not treat it as a secure context — which matters
+# here, because geolocation and some audio APIs are restricted without HTTPS.
+public_host = ":80"
+
+# Must be x86_64: the official PostGIS image has no arm64 build, and on Graviton
+# the database container dies with "exec format error". 2 GB is the floor — the
+# model is unpickled into memory alongside Postgres in a sibling container.
+instance_type = "t3.small"

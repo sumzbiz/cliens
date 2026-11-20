@@ -1,0 +1,53 @@
+{
+  "generated_at": "2026-08-08T13:17:08.896190+00:00",
+  "git_commit": "4632a5d",
+  "source_grib": "data.grib",
+  "source_grib_bytes": 135612080,
+  "source_description": "ECMWF ERA5 reanalysis, daily, 0.25 degree grid",
+  "accumulation_note": "Accumulated fields (tp, e) carry GRIB step 5-6: a one-hour accumulation sampled once daily at 00:00 UTC. They are NOT daily totals and this file provides no way to derive one. Columns are named _hourly_ accordingly.",
+  "excluded_variables": {
+    "sst": "sea surface temperature is undefined over land",
+    "swh": "significant wave height is undefined over land",
+    "mwd": "mean wave direction is undefined over land",
+    "mwp": "mean wave period is undefined over land"
+  },
+  "districts_outside_grid": [
+    "Chennai"
+  ],
+  "gap_filling": {
+    "missing_cells_before": 0,
+    "filled_temporal": 0,
+    "filled_spatial": 0,
+    "note": "No gaps present; no interpolation performed."
+  },
+  "validation": {
+    "rows": 143116,
+    "districts": 37,
+    "date_min": "2016-01-01",
+    "date_max": "2026-08-03",
+    "days_per_district": 3868,
+    "interpolated_rows": 0
+  },
+  "columns": [
+    "district",
+    "date",
+    "grid_latitude",
+    "grid_longitude",
+    "temperature_c",
+    "dewpoint_c",
+    "relative_humidity_percent",
+    "precipitation_hourly_mm",
+    "convective_rain_rate_kg_m2_s",
+    "evaporation_hourly_mm",
+    "wind_speed_ms",
+    "wind_gust_ms",
+    "instantaneous_gust_ms",
+    "surface_pressure_pa",
+    "mean_sea_level_pressure_pa",
+    "soil_moisture_m3_m3",
+    "soil_temperature_c",
+    "soil_type_code",
+    "is_interpolated",
+    "interpolation_method"
+  ]
+}

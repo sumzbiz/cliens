@@ -1,0 +1,63 @@
+# Development infrastructure for Climate Lien Score.
+#
+# Only the database runs here. The backend and frontend run on the host so that
+# reload-on-save stays fast; see README "Running the project".
+#
+#   npm run db:up       start both databases
+#   npm run db:down     stop them, keep data
+#   npm run db:reset    stop them, DESTROY all data, start again
+#
+# This file lives in config/ rather than the repository root, so a direct
+# `docker compose` call needs `-f config/docker-compose.yml --project-directory .`.
+# The project directory is what compose reads `.env` from and what it derives the
+# volume-name prefix from; pointing it at the root keeps both unchanged. The
+# explicit `name:` below pins the project name even when that flag is omitted.
+#
+# Two databases are defined deliberately: `db` holds development data and `test-db`
+# is torn down and recreated by the integration test suite. Sharing one database
+# between the two would make test runs destroy development state.
+
+name: cliens
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: cls-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cls}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cls_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-climate_lien_score}
+    ports:
+      # Host 5433 avoids colliding with a native PostgreSQL on the default 5432.
+      - "5433:5432"
+    volumes:
+      - cls-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cls} -d ${POSTGRES_DB:-climate_lien_score}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  test-db:
+    image: postgis/postgis:16-3.4
+    container_name: cls-test-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cls}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cls_dev_password}
+      POSTGRES_DB: climate_lien_score_test
+    ports:
+      - "5434:5432"
+    # tmpfs: the test database is disposable, so keeping it in RAM makes the
+    # integration suite noticeably faster and guarantees a clean slate on restart.
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cls} -d climate_lien_score_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  cls-db-data:

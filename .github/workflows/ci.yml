@@ -1,0 +1,105 @@
+name: CI
+
+# The build fails if linting, strict type checking, any test, or the coverage
+# threshold (80%, configured in backend/pyproject.toml) fails.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+
+    services:
+      test-db:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: cls
+          POSTGRES_PASSWORD: cls_dev_password
+          POSTGRES_DB: climate_lien_score_test
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd "pg_isready -U cls -d climate_lien_score_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TEST_DATABASE_URL: postgresql+asyncpg://cls:cls_dev_password@localhost:5434/climate_lien_score_test
+      DATABASE_URL: postgresql+asyncpg://cls:cls_dev_password@localhost:5434/climate_lien_score_test
+      DATABASE_URL_SYNC: postgresql+psycopg://cls:cls_dev_password@localhost:5434/climate_lien_score_test
+      ENVIRONMENT: test
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff)
+        working-directory: backend
+        run: ruff check app
+
+      - name: Check formatting (black)
+        working-directory: backend
+        run: black --check app
+
+      - name: Type check (mypy --strict)
+        working-directory: backend
+        run: mypy app
+
+      - name: Test with coverage
+        working-directory: backend
+        run: pytest --cov --cov-report=term-missing --cov-report=xml
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.xml
+          if-no-files-found: warn
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint (eslint)
+        run: npm run lint:frontend
+
+      - name: Type check (tsc --noEmit)
+        run: npm run typecheck:frontend
+
+      - name: Test with coverage
+        run: npm run test:frontend -- --coverage

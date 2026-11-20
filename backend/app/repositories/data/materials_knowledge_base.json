@@ -1,0 +1,250 @@
+{
+  "_readme": [
+    "Climate-responsive construction materials knowledge base.",
+    "",
+    "A direct, structured transcription of the reference tables supplied with the",
+    "build brief, sourced from Indian Standards. Encoded as queryable data rather",
+    "than prose so the rules engine and the frontend read the SAME numbers - a",
+    "requirement of the brief, and the only way a recommendation shown to a user can",
+    "be traced to the clause behind it.",
+    "",
+    "PROVENANCE: values are transcribed from IS 456, IS 875 (Part 3), IS 1077,",
+    "IS 2185, NBC 2016 and CSIR-CBRI guidance as presented in the reference tables.",
+    "They are quoted, not derived - unlike the 0-1 resistance ratings in",
+    "materials_seed.json, which are our own interpretation. Do not conflate the two.",
+    "",
+    "GRADES: min_grade_mpa is the characteristic compressive cube strength in N/mm2",
+    "that the M-number denotes (M20 = 20 N/mm2), added so the engine can compare",
+    "grades numerically instead of parsing strings.",
+    "",
+    "SEVERITY: exposure classes carry an explicit ordinal so 'at least Severe' is a",
+    "comparison rather than a lookup table of special cases."
+  ],
+
+  "exposure_classes": [
+    {
+      "id": "mild",
+      "label": "Mild",
+      "severity": 1,
+      "climate_context": "Fully enclosed, no rain or moisture exposure",
+      "min_cement_kg_m3": 300,
+      "max_water_cement_ratio": 0.55,
+      "min_grade": "M20",
+      "min_grade_mpa": 20,
+      "standard": "IS 456 Table 5"
+    },
+    {
+      "id": "moderate",
+      "label": "Moderate",
+      "severity": 2,
+      "climate_context": "Sheltered from rain, or interior with normal humidity",
+      "min_cement_kg_m3": 300,
+      "max_water_cement_ratio": 0.5,
+      "min_grade": "M25",
+      "min_grade_mpa": 25,
+      "standard": "IS 456 Table 5"
+    },
+    {
+      "id": "severe",
+      "label": "Severe",
+      "severity": 3,
+      "climate_context": "Exposed to alternating wetting and drying; coastal exposure or monsoon-exposed exteriors",
+      "min_cement_kg_m3": 320,
+      "max_water_cement_ratio": 0.45,
+      "min_grade": "M30",
+      "min_grade_mpa": 30,
+      "standard": "IS 456 Table 5"
+    },
+    {
+      "id": "very_severe",
+      "label": "Very Severe",
+      "severity": 4,
+      "climate_context": "Concrete surface exposed to sea water directly; coastal structures near the shoreline",
+      "min_cement_kg_m3": 340,
+      "max_water_cement_ratio": 0.45,
+      "min_grade": "M35",
+      "min_grade_mpa": 35,
+      "standard": "IS 456 Table 5"
+    },
+    {
+      "id": "extreme",
+      "label": "Extreme",
+      "severity": 5,
+      "climate_context": "Tidal zone, or direct contact with aggressive chemicals",
+      "min_cement_kg_m3": 360,
+      "max_water_cement_ratio": 0.4,
+      "min_grade": "M40",
+      "min_grade_mpa": 40,
+      "standard": "IS 456 Table 5"
+    }
+  ],
+
+  "material_recommendations": [
+    {
+      "id": "coastal_psc_ppc",
+      "condition": "coastal_marine",
+      "condition_label": "Coastal/marine (salt air, corrosion)",
+      "material": "Portland Slag Cement (PSC) or PPC",
+      "purpose": "High resistance to chloride and sulphate attack",
+      "standard": "IS 456",
+      "applies_to": "cement"
+    },
+    {
+      "id": "coastal_corrosion_inhibitor",
+      "condition": "coastal_marine",
+      "condition_label": "Coastal/marine - reinforcement protection",
+      "material": "Corrosion inhibitors with increased concrete cover",
+      "purpose": "Protects TMT bars from salt-induced corrosion",
+      "standard": "IS 456 Clause 26.4",
+      "applies_to": "admixture"
+    },
+    {
+      "id": "coastal_ggbs",
+      "condition": "coastal_marine",
+      "condition_label": "Coastal/marine",
+      "material": "GGBS (Ground Granulated Blast Furnace Slag)",
+      "purpose": "Sulphate resistance and long-term strength in marine exposure",
+      "standard": "IS 456",
+      "applies_to": "cement"
+    },
+    {
+      "id": "cyclone_fibre_reinforced",
+      "condition": "high_wind",
+      "condition_label": "High cyclone/wind zone",
+      "material": "Fibre-reinforced concrete (steel or polypropylene fibres)",
+      "purpose": "Crack control and impact toughness under wind-borne debris loading",
+      "standard": "IS 875 Part 3",
+      "applies_to": "concrete"
+    },
+    {
+      "id": "rainfall_waterproofing",
+      "condition": "high_rainfall",
+      "condition_label": "High rainfall / flood-prone",
+      "material": "Waterproofing admixture with silica fume",
+      "purpose": "Reduces water penetration in foundations and plinth",
+      "standard": "IS 456",
+      "applies_to": "admixture"
+    },
+    {
+      "id": "flood_elevated_plinth",
+      "condition": "flood_prone",
+      "condition_label": "Flood-prone plinth/foundation",
+      "material": "Elevated plinth design with waterproof concrete at foundation",
+      "purpose": "Reduces water ingress during inundation events",
+      "standard": "NBC 2016",
+      "applies_to": "foundation"
+    },
+    {
+      "id": "hot_humid_fly_ash",
+      "condition": "hot_humid",
+      "condition_label": "Hot-humid (heat of hydration risk in mass pours)",
+      "material": "Fly ash or PPC",
+      "purpose": "Reduces heat of hydration, preventing thermal cracking",
+      "standard": "IS 456",
+      "applies_to": "cement"
+    },
+    {
+      "id": "hot_aac_wall",
+      "condition": "hot_climate",
+      "condition_label": "Hot climate - wall material (non-structural)",
+      "material": "AAC blocks or fly-ash bricks",
+      "purpose": "Higher thermal mass/insulation, reduces indoor heat gain",
+      "standard": "CSIR-CBRI climate-responsive material guidance",
+      "applies_to": "walling"
+    },
+    {
+      "id": "sustainability_green",
+      "condition": "sustainability_priority",
+      "condition_label": "Sustainability/green priority (any climate)",
+      "material": "Fly ash, GGBS, recycled aggregates, rice husk ash (RHA)",
+      "purpose": "Reduces embodied carbon while meeting durability need",
+      "standard": "IS 456",
+      "applies_to": "cement"
+    }
+  ],
+
+  "brick_suitability": [
+    {
+      "id": "burnt_clay_brick",
+      "material": "Burnt clay (red) brick",
+      "best_climate": "drier_zones",
+      "best_climate_label": "Drier zones; performs worse in humid/coastal climates",
+      "why": "Higher water absorption accelerates deterioration in humid climates when proper mortar and protective finishes are not used. High-quality kiln-fired brick can exceed 30 N/mm2 and suits load-bearing multi-storey walls."
+    },
+    {
+      "id": "fly_ash_brick",
+      "material": "Fly ash brick",
+      "best_climate": "humid",
+      "best_climate_label": "Humid climates",
+      "why": "Low absorption prevents moisture issues, works well across India's humid-coastal to dry range, and is eco-friendly."
+    },
+    {
+      "id": "aac_block",
+      "material": "AAC block",
+      "best_climate": "hot_composite",
+      "best_climate_label": "Hot or composite climates, especially mid-to-high-rise",
+      "why": "Lightweight with strong thermal insulation, reducing structural load."
+    },
+    {
+      "id": "concrete_solid_block",
+      "material": "Concrete/solid block",
+      "best_climate": "humid_moisture_exposed",
+      "best_climate_label": "Humid areas or structures exposed to moisture",
+      "why": "Strong and weather-resistant, ideal where moisture exposure is a concern."
+    },
+    {
+      "id": "engineering_brick",
+      "material": "Engineering brick",
+      "best_climate": "any",
+      "best_climate_label": "Any climate, especially below-ground/high-moisture",
+      "why": "Highest compressive strength (20-35 N/mm2) with very low absorption; used below ground and wherever maximum durability is needed."
+    }
+  ],
+
+  "masonry_properties": [
+    {
+      "id": "fly_ash_brick",
+      "material": "Fly ash brick (Class I)",
+      "compressive_strength_min_mpa": 7.5,
+      "compressive_strength_max_mpa": 10.0,
+      "load_bearing_min_mpa": 7.5,
+      "max_water_absorption_percent": 20.0,
+      "thermal_conductivity_w_mk_min": 0.9,
+      "thermal_conductivity_w_mk_max": 0.9,
+      "note": "Minimum 7.5 N/mm2 required for load-bearing multi-storey masonry"
+    },
+    {
+      "id": "burnt_clay_brick",
+      "material": "Burnt clay brick (IS 1077, Class 3-5)",
+      "compressive_strength_min_mpa": 3.5,
+      "compressive_strength_max_mpa": 7.0,
+      "load_bearing_min_mpa": null,
+      "max_water_absorption_percent": 20.0,
+      "thermal_conductivity_w_mk_min": 0.7,
+      "thermal_conductivity_w_mk_max": 1.3,
+      "note": "Water absorption 15-20%, varying by class and firing quality"
+    },
+    {
+      "id": "aac_block",
+      "material": "AAC block",
+      "compressive_strength_min_mpa": 3.0,
+      "compressive_strength_max_mpa": 4.5,
+      "load_bearing_min_mpa": null,
+      "max_water_absorption_percent": 15.0,
+      "thermal_conductivity_w_mk_min": 0.16,
+      "thermal_conductivity_w_mk_max": 0.24,
+      "note": "Lighter and lower load-bearing than brick; best insulation of the three"
+    },
+    {
+      "id": "pfa_lime_brick",
+      "material": "Pulverised fuel ash-lime brick (Class 30)",
+      "compressive_strength_min_mpa": 30.0,
+      "compressive_strength_max_mpa": 30.0,
+      "load_bearing_min_mpa": 30.0,
+      "max_water_absorption_percent": 15.0,
+      "thermal_conductivity_w_mk_min": null,
+      "thermal_conductivity_w_mk_max": null,
+      "note": "Up to 30 N/mm2 for the highest class; 15% max absorption for classes above 12.5"
+    }
+  ]
+}

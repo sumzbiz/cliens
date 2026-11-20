@@ -1,0 +1,192 @@
+{
+  "_readme": [
+    "Seed data for the material catalogue. Loaded by `npm run db:seed`.",
+    "",
+    "HOW TO READ THE RESISTANCE VALUES",
+    "Each resistance is a dimensionless share in [0, 1]: the fraction of that",
+    "hazard's load the material resists. 0 means the full load reaches the",
+    "structure; 1 means the hazard is fully resisted.",
+    "",
+    "These are DERIVED values, not figures quoted from a standard. No Indian code",
+    "publishes a 0-1 'resistance score'. Each entry's `source_reference` names the",
+    "published basis it was derived from, and the derivation is:",
+    "",
+    "  wind  - from the BMTPC Vulnerability Atlas of India (3rd ed., 2019) wind",
+    "          vulnerability classes for the corresponding housing typology, with",
+    "          design wind loading per IS 875 (Part 3): 2015. Roof typologies drive",
+    "          this most: the Atlas consistently places light sheet roofing in the",
+    "          highest wind-vulnerability class and RCC slabs in the lowest.",
+    "  flood - from BMTPC flood vulnerability classes together with the elevation",
+    "          and wet/dry floodproofing principles in FEMA P-55 Coastal",
+    "          Construction Manual (4th ed.). Elevation above grade dominates.",
+    "  heat  - from thermal transmittance (U-value, W/m2K) for the assembly, per",
+    "          ECBC 2017 envelope tables and IS 3792. Lower U-value maps to higher",
+    "          resistance; AAC and stabilised earth score well, bare RCC poorly.",
+    "",
+    "`relative_cost_index` is indexed so the conventional baseline option for each",
+    "component is 1.0. It ranks recommendations by affordability; it is NOT a price",
+    "estimate and must not be presented as one.",
+    "",
+    "These derivations are a documented judgement and are listed in the README's",
+    "'Known limitations'. They should be reviewed by a structural engineer before",
+    "the tool informs a real permit decision."
+  ],
+  "materials": [
+    {
+      "code": "shallow_strip_footing_masonry",
+      "name": "Shallow strip footing, masonry",
+      "component": "foundation",
+      "resistance_wind": 0.45,
+      "resistance_flood": 0.25,
+      "resistance_heat": 0.4,
+      "relative_cost_index": 1.0,
+      "source_reference": "BMTPC Vulnerability Atlas of India (3rd ed., 2019), flood vulnerability class for load-bearing masonry on shallow footings at grade; IS 1904:1986 design of foundations.",
+      "notes": "The conventional baseline for low-rise construction in Tamil Nadu. Sits at grade, so standing water reaches the wall base directly."
+    },
+    {
+      "code": "rcc_raft_slab",
+      "name": "RCC raft slab",
+      "component": "foundation",
+      "resistance_wind": 0.65,
+      "resistance_flood": 0.5,
+      "resistance_heat": 0.45,
+      "relative_cost_index": 1.35,
+      "source_reference": "IS 456:2000 (plain and reinforced concrete); BMTPC Vulnerability Atlas flood class for RCC raft foundations. Spreads load and resists differential settlement under saturated soil.",
+      "notes": "Better than strip footing against scour and saturation, but still at grade."
+    },
+    {
+      "code": "rcc_raised_plinth",
+      "name": "RCC raft on raised plinth (600 mm above grade)",
+      "component": "foundation",
+      "resistance_wind": 0.7,
+      "resistance_flood": 0.8,
+      "resistance_heat": 0.5,
+      "relative_cost_index": 1.6,
+      "source_reference": "FEMA P-55 Coastal Construction Manual (4th ed.) elevation principle; National Building Code of India 2016 Part 3 plinth requirements. Elevation is the single most effective flood measure.",
+      "notes": "Raising the finished floor above the design flood level keeps water out of the structure entirely, which no wall material can achieve once water is inside."
+    },
+    {
+      "code": "rcc_pile_elevated",
+      "name": "RCC pile foundation, elevated floor",
+      "component": "foundation",
+      "resistance_wind": 0.75,
+      "resistance_flood": 0.92,
+      "resistance_heat": 0.5,
+      "relative_cost_index": 2.4,
+      "source_reference": "FEMA P-55 open-pile foundation guidance for coastal A and V zones; IS 2911 (design of pile foundations).",
+      "notes": "Highest flood resistance available. Allows floodwater to pass beneath the structure. Substantially more expensive and needs a geotechnical survey."
+    },
+
+    {
+      "code": "stabilised_mud_block",
+      "name": "Stabilised compressed earth block",
+      "component": "walls",
+      "resistance_wind": 0.35,
+      "resistance_flood": 0.15,
+      "resistance_heat": 0.7,
+      "relative_cost_index": 0.75,
+      "source_reference": "BMTPC Vulnerability Atlas of India flood and wind classes for earthen walling; IS 1725:2013 (stabilised soil blocks). Thermal resistance from the high thermal mass and low U-value of earth walling per ECBC 2017.",
+      "notes": "Excellent thermal performance and lowest cost, but earthen walling loses strength under prolonged saturation. A poor choice on a flood-exposed site despite the heat benefit."
+    },
+    {
+      "code": "fired_clay_brick_masonry",
+      "name": "Fired clay brick masonry",
+      "component": "walls",
+      "resistance_wind": 0.5,
+      "resistance_flood": 0.4,
+      "resistance_heat": 0.45,
+      "relative_cost_index": 1.0,
+      "source_reference": "BMTPC Vulnerability Atlas of India wind and flood classes for burnt-brick load-bearing masonry; IS 1905:1987 (structural use of unreinforced masonry). U-value per ECBC 2017 for 230 mm brick.",
+      "notes": "The conventional baseline for walls in Tamil Nadu. Survives inundation but absorbs water and dries slowly."
+    },
+    {
+      "code": "hollow_concrete_block",
+      "name": "Hollow concrete block masonry",
+      "component": "walls",
+      "resistance_wind": 0.55,
+      "resistance_flood": 0.5,
+      "resistance_heat": 0.4,
+      "relative_cost_index": 1.05,
+      "source_reference": "IS 2185 (Part 1) concrete masonry units; BMTPC Vulnerability Atlas class for concrete block masonry. U-value per ECBC 2017.",
+      "notes": "Better wet-strength retention than fired brick. Thermal performance is slightly worse unless the cores are insulated."
+    },
+    {
+      "code": "aac_block",
+      "name": "Autoclaved aerated concrete (AAC) block",
+      "component": "walls",
+      "resistance_wind": 0.5,
+      "resistance_flood": 0.45,
+      "resistance_heat": 0.8,
+      "relative_cost_index": 1.25,
+      "source_reference": "IS 2185 (Part 3) autoclaved cellular concrete blocks; ECBC 2017 envelope U-value tables - AAC has roughly a quarter the thermal conductivity of fired brick.",
+      "notes": "The strongest heat performer among common walling options, which matters most where the binding constraint is rising wet-bulb temperature rather than wind."
+    },
+    {
+      "code": "rcc_shear_wall",
+      "name": "RCC shear wall construction",
+      "component": "walls",
+      "resistance_wind": 0.85,
+      "resistance_flood": 0.75,
+      "resistance_heat": 0.3,
+      "relative_cost_index": 1.8,
+      "source_reference": "IS 456:2000; IS 875 (Part 3): 2015 wind load resistance for monolithic RCC; BMTPC Vulnerability Atlas lowest wind-vulnerability class for RCC framed and shear-wall construction.",
+      "notes": "Best structural resistance by a wide margin, but bare RCC has a high U-value and performs worst on heat unless externally insulated."
+    },
+
+    {
+      "code": "gi_sheet_roof",
+      "name": "Galvanised iron sheet roofing",
+      "component": "roofing",
+      "resistance_wind": 0.2,
+      "resistance_flood": 0.6,
+      "resistance_heat": 0.15,
+      "relative_cost_index": 0.6,
+      "source_reference": "BMTPC Vulnerability Atlas of India highest wind-vulnerability class for light sheet roofing; IS 875 (Part 3): 2015 uplift coefficients for light roof coverings.",
+      "notes": "Cheapest option and the most common failure mode in Indian cyclones: sheets lift at the fixings, after which wind and rain enter and the damage chain accelerates. Also a poor thermal performer."
+    },
+    {
+      "code": "country_clay_tile_roof",
+      "name": "Country clay tile roofing on timber framing",
+      "component": "roofing",
+      "resistance_wind": 0.3,
+      "resistance_flood": 0.55,
+      "resistance_heat": 0.55,
+      "relative_cost_index": 0.85,
+      "source_reference": "BMTPC Vulnerability Atlas high wind-vulnerability class for unsecured tiled roofs on timber framing. Thermal benefit from the ventilated air gap beneath the tiles.",
+      "notes": "Traditional and thermally comfortable, but individual tiles are displaced by uplift well below design wind speed."
+    },
+    {
+      "code": "rcc_flat_slab",
+      "name": "RCC flat roof slab",
+      "component": "roofing",
+      "resistance_wind": 0.85,
+      "resistance_flood": 0.7,
+      "resistance_heat": 0.35,
+      "relative_cost_index": 1.0,
+      "source_reference": "IS 456:2000; BMTPC Vulnerability Atlas lowest wind-vulnerability class for RCC roof slabs. U-value per ECBC 2017 for an uninsulated 125 mm RCC slab.",
+      "notes": "The conventional baseline for roofing. Structurally excellent against wind; a significant heat gain path when uninsulated."
+    },
+    {
+      "code": "rcc_slab_cool_roof",
+      "name": "RCC roof slab with reflective cool-roof coating",
+      "component": "roofing",
+      "resistance_wind": 0.85,
+      "resistance_flood": 0.7,
+      "resistance_heat": 0.7,
+      "relative_cost_index": 1.1,
+      "source_reference": "IS 456:2000 for the slab; ECBC 2017 cool-roof provisions (high solar reflectance index) for the coating. Adopted in the Telangana and Tamil Nadu cool-roof programmes.",
+      "notes": "Keeps the structural performance of an RCC slab and roughly doubles its heat resistance for a small cost increase. Usually the highest-value single upgrade on a heat-limited site."
+    },
+    {
+      "code": "rcc_sloped_slab",
+      "name": "RCC sloped roof slab",
+      "component": "roofing",
+      "resistance_wind": 0.9,
+      "resistance_flood": 0.75,
+      "resistance_heat": 0.45,
+      "relative_cost_index": 1.25,
+      "source_reference": "IS 875 (Part 3): 2015 - a sloped monolithic roof develops lower net uplift than a flat slab of the same construction; IS 456:2000.",
+      "notes": "The best wind performer. Sheds water rapidly and generates less uplift than a flat slab."
+    }
+  ]
+}

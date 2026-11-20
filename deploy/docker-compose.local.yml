@@ -1,0 +1,34 @@
+# Run the production stack on this machine.
+#
+# Layered over docker-compose.prod.yml, so what runs is the same three
+# containers as the server — the built API image, PostGIS, and Caddy serving the
+# compiled frontend — rather than the reload-mode dev servers. The differences
+# are only the ones a laptop needs:
+#
+# - the API image is built from this checkout instead of by deploy.sh;
+# - Caddy serves frontend/dist directly, so `npm run build` is the whole deploy;
+# - plain HTTP on :80, because Let's Encrypt cannot issue for localhost.
+#
+#   npm run prod:up      build everything and start it on http://localhost
+#   npm run prod:logs    follow the logs
+#   npm run prod:down    stop it (data is kept)
+#
+# Its own project name and volumes, so it never touches the dev database that
+# `npm run db:up` manages.
+
+name: cliens-prod-local
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    image: cliens-backend:local
+    environment:
+      CORS_ALLOWED_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost}
+
+  web:
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:-:80}
+    volumes:
+      - ../frontend/dist:/srv/site:ro

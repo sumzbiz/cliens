@@ -1,0 +1,31 @@
+{
+  "model": "quality_score",
+  "artifact": "quality_score_20260808_4632a5d.pkl",
+  "trained_at": "2026-08-08T13:30:34.552567+00:00",
+  "git_commit": "4632a5d",
+  "random_seed": 20231204,
+  "sklearn_target": "damage_ratio",
+  "metrics": {
+    "r2": 0.8863366043081133,
+    "mae": 4.34111286772348,
+    "train_samples": 8702,
+    "test_samples": 2176,
+    "target_units": "quality score, 0-100"
+  },
+  "training_data": "rules-labelled scenarios over real district climate",
+  "climate_source": "data.grib via district_climate_profiles.json",
+  "honesty_note": "Labels are computed by the Phase 3 IS 456 rules engine, not observed from real buildings. This model interpolates a deterministic rule set smoothly; it is not evidence about building survival.",
+  "feature_importances": {
+    "mean_relative_humidity_percent": 0.0020008597355680494,
+    "wetness_index": 0.003113740862197274,
+    "wet_dry_cycles_per_year": 0.003112315376926379,
+    "max_wind_gust_ms": 0.0023658192183057015,
+    "mean_max_temperature_c": 0.0022700419393883267,
+    "distance_to_coast_km": 0.01120860644286856,
+    "situation_severity": 0.002635814529568779,
+    "grade_mpa": 0.5852651881556463,
+    "cement_content_kg_m3": 0.09382548619165844,
+    "water_cement_ratio": 0.252333570533517,
+    "walling_absorption_percent": 0.0418685570143552
+  }
+}

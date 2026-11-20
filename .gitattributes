@@ -1,0 +1,20 @@
+# Line endings.
+#
+# Everything is normalised to LF in the repository. Files that are executed or
+# parsed inside Linux containers are also forced to LF in the working tree,
+# whatever the checkout platform: with Git for Windows' default
+# core.autocrlf=true they were checked out as CRLF, the entrypoint's shebang
+# became `bash\r`, and an API image built from a Windows clone could never start.
+* text=auto
+
+*.sh        text eol=lf
+Dockerfile  text eol=lf
+Caddyfile   text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.tf        text eol=lf
+
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.pkl  binary
