@@ -29,6 +29,15 @@ class TestClamp:
         with pytest.raises(ValueError, match="invalid clamp range"):
             calculations.clamp(0.5, 1.0, 0.0)
 
+    def test_rejects_nan(self) -> None:
+        """NaN used to come back as the upper bound, so it read as a perfect score."""
+        with pytest.raises(ValueError, match="NaN"):
+            calculations.clamp(math.nan, 0.0, 100.0)
+
+    @pytest.mark.parametrize(("value", "expected"), [(math.inf, 1.0), (-math.inf, 0.0)])
+    def test_infinities_clamp_to_the_bounds(self, value: float, expected: float) -> None:
+        assert calculations.clamp(value, 0.0, 1.0) == expected
+
 
 class TestUnitConversion:
     """Unit mistakes are the failure mode the brief calls out most explicitly."""

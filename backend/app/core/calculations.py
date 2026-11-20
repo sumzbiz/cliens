@@ -25,10 +25,15 @@ def clamp(value: float, minimum: float, maximum: float) -> float:
     """Constrain ``value`` to the inclusive range ``[minimum, maximum]``.
 
     Raises:
-        ValueError: If the range is inverted, which would silently return nonsense.
+        ValueError: If the range is inverted, or ``value`` is NaN. Either would
+            silently return nonsense: ``min``/``max`` never select a NaN, so it
+            came back as ``maximum`` — a NaN prediction would have been reported
+            as a perfect score.
     """
     if minimum > maximum:
         raise ValueError(f"invalid clamp range: minimum {minimum} exceeds maximum {maximum}")
+    if math.isnan(value):
+        raise ValueError("cannot clamp NaN")
     return max(minimum, min(maximum, value))
 
 
