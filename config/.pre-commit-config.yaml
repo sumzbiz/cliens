@@ -25,6 +25,9 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: check-json
+        # JSONC, not JSON: VS Code settings and tsconfig files legitimately carry
+        # comments, which a strict JSON parser rejects.
+        exclude: ^(\.vscode/settings\.json|frontend/tsconfig(\.\w+)?\.json)$
       - id: check-merge-conflict
       - id: check-added-large-files
         # The damage calibration artifact is ~6 MB, so the limit must clear it.
@@ -36,21 +39,26 @@ repos:
 
   - repo: local
     hooks:
+      # black and ruff run over the same paths as `npm run lint:backend` rather than
+      # over the changed files. pre-commit passes paths relative to the repository
+      # root (`backend/app/...`), but scripts/py.mjs runs the tools from backend/,
+      # so every passed path resolved to `backend/backend/...` and both hooks
+      # failed on every commit.
       - id: black
         name: black (backend formatting)
-        entry: node scripts/py.mjs -m black
+        entry: node scripts/py.mjs -m black --config pyproject.toml app ../db/migrations
         language: system
         types: [python]
-        files: ^backend/
-        pass_filenames: true
+        files: ^(backend|db)/
+        pass_filenames: false
 
       - id: ruff
         name: ruff (backend lint)
-        entry: node scripts/py.mjs -m ruff check --fix
+        entry: node scripts/py.mjs -m ruff check --fix --config pyproject.toml app ../db/migrations
         language: system
         types: [python]
-        files: ^backend/
-        pass_filenames: true
+        files: ^(backend|db)/
+        pass_filenames: false
 
       - id: mypy
         name: mypy (backend types, strict)
