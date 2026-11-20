@@ -52,7 +52,7 @@ WALLING_FEATURE_IDS: tuple[str, ...] = (
 
 # Cement types and admixtures, because matching them is what earns the
 # recommendation credit in the rules score.
-CEMENT_FEATURE_TYPES: tuple[str, ...] = ("OPC", "PPC", "PSC")
+CEMENT_FEATURE_TYPES: tuple[str, ...] = constants.SUPPORTED_CEMENT_TYPES
 ADMIXTURE_FEATURES: dict[str, str] = {
     "has_corrosion_inhibitor": "corrosion inhibitor",
     "has_waterproofing_admixture": "waterproofing admixture",

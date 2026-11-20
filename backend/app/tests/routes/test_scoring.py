@@ -250,6 +250,55 @@ class TestValidation:
 
         assert response.status_code == 422
 
+    @pytest.mark.parametrize("grade", ["M10", "M50", "M999"])
+    async def test_grade_outside_the_scored_range_is_rejected(
+        self, client: AsyncClient, grade: str
+    ) -> None:
+        """Well-formed but unsupported: M999 used to score higher than a real M30."""
+        bad = {**WEAK_SPEC, "concrete": {**WEAK_SPEC["concrete"], "grade": grade}}
+        response = await client.post("/api/score", json={"district": "Salem", "materials": bad})
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    async def test_grade_spelling_is_normalised(self, client: AsyncClient) -> None:
+        loose = {**WEAK_SPEC, "concrete": {**WEAK_SPEC["concrete"], "grade": "m 20"}}
+        response = await client.post("/api/score", json={"district": "Salem", "materials": loose})
+
+        assert response.status_code == 200
+        assert response.json()["proposed"]["concrete"]["grade"] == "M20"
+
+    async def test_unknown_cement_type_is_rejected(self, client: AsyncClient) -> None:
+        bad = {**WEAK_SPEC, "concrete": {**WEAK_SPEC["concrete"], "cement_type": "XYZ"}}
+        response = await client.post("/api/score", json={"district": "Salem", "materials": bad})
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    @pytest.mark.parametrize("path", ["/api/score", "/api/reports"])
+    async def test_unknown_walling_material_is_rejected(
+        self, client: AsyncClient, path: str
+    ) -> None:
+        """An invented material used to skip the walling check and score as the best."""
+        bad = {**WEAK_SPEC, "walling_material_id": "unobtainium"}
+        response = await client.post(path, json={"district": "Salem", "materials": bad})
+
+        assert response.status_code == 422
+        error = response.json()["error"]
+        assert error["code"] == "UNKNOWN_MATERIAL"
+        assert error["details"]["unknown_codes"] == ["unobtainium"]
+        assert "fly_ash_brick" in error["details"]["known_codes"]
+
+    async def test_unknown_walling_material_is_rejected_for_a_drawn_area(
+        self, client: AsyncClient
+    ) -> None:
+        bad = {**WEAK_SPEC, "walling_material_id": "unobtainium"}
+        area = {"south": 11.0, "north": 11.2, "west": 76.9, "east": 77.1}
+        response = await client.post("/api/score/area", json={"area": area, "materials": bad})
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "UNKNOWN_MATERIAL"
+
 
 class TestReportDownload:
     """The report must be a real file, not an on-screen view."""

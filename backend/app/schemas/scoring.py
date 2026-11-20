@@ -9,8 +9,9 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from app.core import constants
 from app.schemas.common import SchemaBase
 
 ElementSituation = Literal["enclosed", "sheltered", "exposed", "buried", "tidal"]
@@ -30,6 +31,32 @@ class ConcreteMixInput(SchemaBase):
     water_cement_ratio: Annotated[float, Field(gt=0, le=1.5)]
     cement_type: Annotated[str, Field(max_length=40)] = "OPC"
     admixtures: tuple[Annotated[str, Field(max_length=60)], ...] = ()
+
+    @field_validator("grade")
+    @classmethod
+    def _grade_must_be_supported(cls, value: str) -> str:
+        """Normalise the grade (``m 30`` becomes ``M30``) and reject unsupported ones.
+
+        The pattern alone admitted grades such as ``M999``, which the model then
+        scored — higher than a real M30 mix — by extrapolating far outside the
+        grades it was trained on.
+        """
+        normalised = "M" + value[1:].strip()
+        if normalised not in constants.SUPPORTED_CONCRETE_GRADES:
+            raise ValueError(
+                f"grade must be one of {', '.join(constants.SUPPORTED_CONCRETE_GRADES)}"
+            )
+        return normalised
+
+    @field_validator("cement_type")
+    @classmethod
+    def _cement_type_must_be_supported(cls, value: str) -> str:
+        """Reject cement types the rules and the model have no knowledge of."""
+        if value not in constants.SUPPORTED_CEMENT_TYPES:
+            raise ValueError(
+                f"cement_type must be one of {', '.join(constants.SUPPORTED_CEMENT_TYPES)}"
+            )
+        return value
 
 
 class MaterialSelectionInput(SchemaBase):

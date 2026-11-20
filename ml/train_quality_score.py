@@ -51,13 +51,13 @@ TARGET_COLUMN = "quality_score"
 # Sampled material space. Deliberately wider than any sensible specification so
 # the model is well fitted either side of every threshold rather than only at
 # realistic values.
-GRADES = ["M15", "M20", "M25", "M30", "M35", "M40", "M45"]
+GRADES = list(constants.SUPPORTED_CONCRETE_GRADES)
 CEMENT_CONTENTS = [260.0, 280.0, 300.0, 320.0, 340.0, 360.0, 380.0]
 WATER_CEMENT_RATIOS = [0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
 # Every situation the API accepts. Tidal used to be missing, so every tidal score
 # was an extrapolation — measured at 22 points off the rules on average.
 SITUATIONS: list[ElementSituation] = ["enclosed", "sheltered", "exposed", "buried", "tidal"]
-CEMENT_TYPES = ["OPC", "PPC", "PSC"]
+CEMENT_TYPES = list(constants.SUPPORTED_CEMENT_TYPES)
 ADMIXTURES = list(ADMIXTURE_FEATURES.values())
 
 

@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core import calculations, constants
+from app.core.exceptions import UnknownMaterialError
 from app.core.logging import get_logger
 from app.ml.quality_score import QualityScoreModel
 from app.repositories.district_profiles import DistrictClimateProfile
@@ -217,7 +218,12 @@ class QualityScoringService:
         The shared core of both modes. Named-district scoring and area scoring
         differ only in where the profile came from; keeping the scoring itself in
         one place is what stops the two paths drifting apart.
+
+        Raises:
+            UnknownMaterialError: If the proposed walling is not in the knowledge base.
         """
+        if proposed is not None:
+            self._require_known_walling(proposed.walling_material_id)
         summary = self._climate.to_rules_summary(profile)
 
         baseline = proposed if proposed is not None else self._conventional_baseline(situation)
@@ -279,6 +285,22 @@ class QualityScoringService:
             walling_material_id=walling,
             element_situation=situation,
         )
+
+    def _require_known_walling(self, walling_material_id: str) -> None:
+        """Reject a walling material the knowledge base does not describe.
+
+        The rules engine reports an unlisted material as unassessed rather than
+        failing it, which is right for a reference-table gap but wrong for client
+        input: an invented id skipped the walling check and still received a
+        confident score, identical to the best real material's.
+        """
+        known = [item.id for item in self._knowledge_base.brick_suitability]
+        if walling_material_id not in known:
+            logger.info("walling_material_unknown", walling_material_id=walling_material_id)
+            raise UnknownMaterialError(
+                "The selected walling material is not one we can assess.",
+                details={"unknown_codes": [walling_material_id], "known_codes": known},
+            )
 
     def _score(self, summary: ClimateSummary, selection: MaterialSelection) -> ScoredSelection:
         """Assess a selection and score it by both routes."""

@@ -423,6 +423,22 @@ CONVENTIONAL_BASELINE_WATER_CEMENT_RATIO: Final[float] = 0.55
 CONVENTIONAL_BASELINE_CEMENT_TYPE: Final[str] = "OPC"
 CONVENTIONAL_BASELINE_WALLING: Final[str] = "burnt_clay_brick"
 
+# CALIBRATED. The concrete grades and cement types the score can rate: exactly the
+# space the quality model was trained over (ml/train_quality_score.py) and the
+# options the UI offers. IS 456 Table 2 defines grades beyond M45, but the model
+# has never seen one, so scoring it would be an extrapolation presented as a
+# result — a request outside these sets is rejected instead.
+SUPPORTED_CONCRETE_GRADES: Final[tuple[str, ...]] = (
+    "M15",
+    "M20",
+    "M25",
+    "M30",
+    "M35",
+    "M40",
+    "M45",
+)
+SUPPORTED_CEMENT_TYPES: Final[tuple[str, ...]] = ("OPC", "PPC", "PSC")
+
 # CALIBRATED. Score bands used for the plain-language verdict in the report.
 SCORE_BAND_THRESHOLDS: Final[tuple[tuple[str, float], ...]] = (
     ("poor", 40.0),
