@@ -13,6 +13,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import constants
 from app.repositories.materials import MaterialRepository, load_seed_materials
+from app.schemas.materials import HazardResistance
+
+#: The hazards every catalogue entry carries a resistance rating for.
+HAZARDS = tuple(HazardResistance.model_fields)
 
 pytestmark = pytest.mark.integration
 
@@ -33,7 +37,7 @@ class TestSeedData:
 
     def test_resistances_are_within_the_unit_interval(self) -> None:
         for material in load_seed_materials():
-            for hazard in constants.HAZARDS:
+            for hazard in HAZARDS:
                 value = material[f"resistance_{hazard}"]
                 assert 0.0 <= value <= 1.0, f"{material['code']}/{hazard}"
 
@@ -91,7 +95,7 @@ class TestCatalogueEndpoint:
         response = await client.get("/api/materials")
 
         walls = response.json()["walls"]
-        assert set(walls[0]["resistance"]) == set(constants.HAZARDS)
+        assert set(walls[0]["resistance"]) == set(HAZARDS)
 
     async def test_entries_are_ordered_cheapest_first(
         self, client: AsyncClient, seeded_catalogue: None

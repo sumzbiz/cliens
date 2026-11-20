@@ -22,9 +22,13 @@ REPORT_ERRORS: dict[int | str, dict[str, Any]] = {
         "model": ErrorResponse,
         "description": "The request did not match the expected shape.",
     },
+    status.HTTP_404_NOT_FOUND: {
+        "model": ErrorResponse,
+        "description": "The district, point or area is outside the measured climate coverage.",
+    },
     status.HTTP_503_SERVICE_UNAVAILABLE: {
         "model": ErrorResponse,
-        "description": "No measured climate profile for that district, or models not trained.",
+        "description": "Climate profiles or models are not loaded on the server.",
     },
 }
 
@@ -50,8 +54,9 @@ async def download_report(request: ScoreRequest, service: ScoringServiceDep) -> 
     """
     comparison = service.compare(
         district=request.district,
-        proposed=to_selection(request.materials),
+        proposed=to_selection(request.materials, request.member, request.element_situation),
         situation=request.element_situation,
+        member=request.member,
     )
     return _pdf_response(comparison, evaluated_own_materials=request.materials is not None)
 
@@ -82,8 +87,9 @@ async def download_area_report(request: AreaScoreRequest, service: ScoringServic
             west=request.area.west,
             east=request.area.east,
         ),
-        proposed=to_selection(request.materials),
+        proposed=to_selection(request.materials, request.member, request.element_situation),
         situation=request.element_situation,
+        member=request.member,
     )
     return _pdf_response(comparison, evaluated_own_materials=request.materials is not None)
 

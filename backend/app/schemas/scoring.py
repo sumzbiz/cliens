@@ -9,11 +9,13 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
+from app.core import constants
 from app.schemas.common import SchemaBase
 
 ElementSituation = Literal["enclosed", "sheltered", "exposed", "buried", "tidal"]
+MemberType = Literal["slab", "beam", "column", "footing"]
 ScoreBand = Literal["poor", "marginal", "adequate", "good", "excellent"]
 
 Grade = Annotated[
@@ -31,13 +33,73 @@ class ConcreteMixInput(SchemaBase):
     cement_type: Annotated[str, Field(max_length=40)] = "OPC"
     admixtures: tuple[Annotated[str, Field(max_length=60)], ...] = ()
 
+    @field_validator("grade")
+    @classmethod
+    def _grade_must_be_supported(cls, value: str) -> str:
+        """Normalise the grade (``m 30`` becomes ``M30``) and reject unsupported ones.
+
+        The pattern alone admitted grades such as ``M999``, which the model then
+        scored — higher than a real M30 mix — by extrapolating far outside the
+        grades it was trained on.
+        """
+        normalised = "M" + value[1:].strip()
+        if normalised not in constants.SUPPORTED_CONCRETE_GRADES:
+            raise ValueError(
+                f"grade must be one of {', '.join(constants.SUPPORTED_CONCRETE_GRADES)}"
+            )
+        return normalised
+
+    @field_validator("cement_type")
+    @classmethod
+    def _cement_type_must_be_supported(cls, value: str) -> str:
+        """Reject cement types the rules and the model have no knowledge of."""
+        if value not in constants.SUPPORTED_CEMENT_TYPES:
+            raise ValueError(
+                f"cement_type must be one of {', '.join(constants.SUPPORTED_CEMENT_TYPES)}"
+            )
+        return value
+
 
 class MaterialSelectionInput(SchemaBase):
     """What the user proposes to build with."""
 
     concrete: ConcreteMixInput
     walling_material_id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*$", max_length=80)]
+    nominal_cover_mm: Annotated[
+        float,
+        Field(
+            gt=0,
+            le=constants.MAX_NOMINAL_COVER_MM,
+            description=(
+                "Nominal concrete cover to the reinforcement, in mm. Required: it is "
+                "the largest single control on how long the steel stays protected."
+            ),
+        ),
+    ]
     element_situation: ElementSituation = "exposed"
+
+
+def _require_one_situation(
+    situation: ElementSituation, materials: MaterialSelectionInput | None
+) -> None:
+    """Reject a request whose two element situations disagree.
+
+    The situation appears at the top level and, for compatibility, inside
+    ``materials``. They used to be read separately: with the nested one omitted
+    it defaulted to "exposed", so the user's specification was judged against a
+    different exposure class than the recommendation and the page header in the
+    same response. The top level is now the only one used; an explicit nested
+    value that contradicts it is an error rather than a silent override.
+    """
+    if (
+        materials is not None
+        and "element_situation" in materials.model_fields_set
+        and materials.element_situation != situation
+    ):
+        raise ValueError(
+            f"materials.element_situation ({materials.element_situation!r}) contradicts "
+            f"element_situation ({situation!r}); send it once, at the top level"
+        )
 
 
 class ScoreRequest(SchemaBase):
@@ -51,6 +113,14 @@ class ScoreRequest(SchemaBase):
     district: Annotated[str, Field(min_length=1, max_length=80)]
     materials: MaterialSelectionInput | None = None
     element_situation: ElementSituation = "exposed"
+    member: MemberType = Field(
+        default="beam", description="The reinforced-concrete member, which sets its cover."
+    )
+
+    @model_validator(mode="after")
+    def _situations_agree(self) -> ScoreRequest:
+        _require_one_situation(self.element_situation, self.materials)
+        return self
 
 
 class ComplianceFindingResponse(SchemaBase):
@@ -103,9 +173,15 @@ class ScoredSelectionResponse(SchemaBase):
 
     concrete: ConcreteMixInput
     walling_material_id: str
-    score: float = Field(ge=0, le=100, description="Headline 0-100 score, from the model.")
-    rules_score: float = Field(
-        ge=0, le=100, description="The same score computed directly by the rules engine."
+    nominal_cover_mm: float
+    member: MemberType
+    score: float = Field(
+        ge=0, le=100, description="Headline 0-100 score, computed by the IS 456 rules engine."
+    )
+    model_score: float = Field(
+        ge=0,
+        le=100,
+        description="The ML model's estimate of the same score, returned as a cross-check.",
     )
     band: ScoreBand
     compliant: bool
@@ -227,6 +303,14 @@ class AreaScoreRequest(SchemaBase):
     area: AreaBoundsInput
     materials: MaterialSelectionInput | None = None
     element_situation: ElementSituation = "exposed"
+    member: MemberType = Field(
+        default="beam", description="The reinforced-concrete member, which sets its cover."
+    )
+
+    @model_validator(mode="after")
+    def _situations_agree(self) -> AreaScoreRequest:
+        _require_one_situation(self.element_situation, self.materials)
+        return self
 
 
 class ClimateProvenanceResponse(SchemaBase):

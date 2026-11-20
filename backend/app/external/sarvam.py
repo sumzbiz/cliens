@@ -83,6 +83,16 @@ class SarvamTtsClient:
         """Whether any key is available."""
         return bool(self._ring.keys)
 
+    @property
+    def has_usable_key(self) -> bool:
+        """Whether a key remains that has not been found exhausted.
+
+        Spent keys stay retired for the life of the process, so once the last one
+        is spent synthesis cannot succeed — and saying otherwise would offer the
+        user a Listen button that can only fail.
+        """
+        return self._ring.active is not None
+
     async def synthesise(self, text: str) -> bytes:
         """Return WAV audio for one chunk of text.
 

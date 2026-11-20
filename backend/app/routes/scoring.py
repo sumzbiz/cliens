@@ -20,7 +20,9 @@ from app.schemas.scoring import (
     ClimateProvenanceResponse,
     ComplianceFindingResponse,
     DistrictListResponse,
+    ElementSituation,
     MaterialSelectionInput,
+    MemberType,
     PinRequest,
     PinResolutionResponse,
     RecommendationResponse,
@@ -40,9 +42,13 @@ SCORE_ERRORS: dict[int | str, dict[str, Any]] = {
         "model": ErrorResponse,
         "description": "The request did not match the expected shape.",
     },
+    status.HTTP_404_NOT_FOUND: {
+        "model": ErrorResponse,
+        "description": "The district, point or area is outside the measured climate coverage.",
+    },
     status.HTTP_503_SERVICE_UNAVAILABLE: {
         "model": ErrorResponse,
-        "description": "No measured climate profile for that district, or models not trained.",
+        "description": "Climate profiles or models are not loaded on the server.",
     },
 }
 
@@ -107,11 +113,12 @@ async def create_score(request: ScoreRequest, service: ScoringServiceDep) -> Sco
     Supplying ``materials`` evaluates them. Omitting it returns the recommendation
     against a conventional baseline, so a before/after always exists.
     """
-    proposed = to_selection(request.materials)
+    proposed = to_selection(request.materials, request.member, request.element_situation)
     comparison = service.compare(
         district=request.district,
         proposed=proposed,
         situation=request.element_situation,
+        member=request.member,
     )
     return _to_response(comparison)
 
@@ -137,8 +144,9 @@ async def create_area_score(request: AreaScoreRequest, service: ScoringServiceDe
             west=request.area.west,
             east=request.area.east,
         ),
-        proposed=to_selection(request.materials),
+        proposed=to_selection(request.materials, request.member, request.element_situation),
         situation=request.element_situation,
+        member=request.member,
     )
     return _to_response(
         comparison,
@@ -151,11 +159,17 @@ async def create_area_score(request: AreaScoreRequest, service: ScoringServiceDe
     )
 
 
-def to_selection(materials: MaterialSelectionInput | None) -> MaterialSelection | None:
+def to_selection(
+    materials: MaterialSelectionInput | None,
+    member: MemberType,
+    situation: ElementSituation,
+) -> MaterialSelection | None:
     """Map the request body onto the engine's input type.
 
     Shared with the report endpoint, which takes the same body — defined once so
-    the two cannot drift apart.
+    the two cannot drift apart. The situation is the request's top-level one, the
+    same the recommendation and the exposure class are built from; the nested copy
+    has already been checked against it.
     """
     if materials is None:
         return None
@@ -168,13 +182,16 @@ def to_selection(materials: MaterialSelectionInput | None) -> MaterialSelection 
             admixtures=tuple(materials.concrete.admixtures),
         ),
         walling_material_id=materials.walling_material_id,
-        element_situation=materials.element_situation,
+        nominal_cover_mm=materials.nominal_cover_mm,
+        element_situation=situation,
+        member=member,
     )
 
 
 SERVICE_LIFE_BASIS = (
-    "Estimated from IS 456's 50-year design life, adjusted for how this mix's "
-    "water/cement ratio and compliance compare to the exposure class minimums. "
+    "Estimated from IS 456's 50-year design life, adjusted for how this "
+    "specification's cover, water/cement ratio and compliance compare to the "
+    "exposure class minimums. "
     "Not a prediction from observed building failures."
 )
 
@@ -204,8 +221,10 @@ def _to_scored(scored: ScoredSelection) -> ScoredSelectionResponse:
             admixtures=tuple(scored.selection.concrete.admixtures),
         ),
         walling_material_id=scored.selection.walling_material_id,
+        nominal_cover_mm=scored.selection.nominal_cover_mm,
+        member=scored.selection.member,
         score=scored.score,
-        rules_score=scored.rules_score,
+        model_score=scored.model_score,
         band=scored.band,
         compliant=scored.assessment.compliant,
         service_life=_to_service_life(scored),

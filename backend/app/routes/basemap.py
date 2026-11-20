@@ -58,12 +58,14 @@ async def get_tile(
     actual limit depends on which providers are configured, so it is checked here.
     Serving beyond it would return blank tiles that look like missing ground.
     """
-    if z > _max_zoom(settings.mapbox_configured):
+    deep_imagery = await basemap.mapbox_available(settings.mapbox_access_token)
+    if z > _max_zoom(deep_imagery):
         raise ValidationError(
-            f"Zoom {z} is deeper than the configured imagery provides.",
+            f"Zoom {z} is deeper than the available imagery provides.",
             details={
-                "max_zoom": _max_zoom(settings.mapbox_configured),
+                "max_zoom": _max_zoom(deep_imagery),
                 "mapbox_configured": settings.mapbox_configured,
+                "deep_imagery_available": deep_imagery,
             },
         )
 
@@ -84,9 +86,11 @@ async def get_tile(
     return _tile_response(payload)
 
 
-def _max_zoom(mapbox_configured: bool) -> int:
-    """The deepest zoom the configured providers actually publish."""
-    return constants.MAX_TILE_ZOOM_MAPBOX if mapbox_configured else constants.MAX_TILE_ZOOM_ESRI
+def _max_zoom(deep_imagery_available: bool) -> int:
+    """The deepest zoom the working providers actually publish."""
+    return (
+        constants.MAX_TILE_ZOOM_MAPBOX if deep_imagery_available else constants.MAX_TILE_ZOOM_ESRI
+    )
 
 
 @router.get(
@@ -98,16 +102,17 @@ async def get_basemap_capabilities(settings: SettingsDep) -> BasemapCapabilities
     """Report the real zoom ceiling and the attribution that must be shown.
 
     The client cannot hardcode either. Both change with which providers are
-    configured, and a client that assumed the deeper limit would let the user zoom
-    into blank tiles while crediting the wrong source.
+    working — a configured Mapbox token can still be rejected for the whole
+    account — and a client that assumed the deeper limit would let the user zoom
+    into placeholder tiles while crediting the wrong source.
     """
-    mapbox = settings.mapbox_configured
+    deep_imagery = await basemap.mapbox_available(settings.mapbox_access_token)
     return BasemapCapabilities(
-        max_zoom=_max_zoom(mapbox),
-        deep_imagery_available=mapbox,
+        max_zoom=_max_zoom(deep_imagery),
+        deep_imagery_available=deep_imagery,
         attribution=(
             "Imagery © Mapbox, © Maxar. Labels © Esri"
-            if mapbox
+            if deep_imagery
             else "Imagery © Esri, Maxar, Earthstar Geographics"
         ),
     )

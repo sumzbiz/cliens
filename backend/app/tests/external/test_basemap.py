@@ -197,6 +197,76 @@ class TestTileCompositing:
             await basemap.fetch_composited_tile(x=1, y=2, z=3, mapbox_token=MAPBOX_TEST_KEY)
 
 
+class TestMapboxHealth:
+    """A configured token is not a working one; the map must not assume it is."""
+
+    async def test_no_token_is_unavailable_without_a_request(self) -> None:
+        with respx.mock:
+            assert await basemap.mapbox_available(None) is False
+
+    @pytest.mark.parametrize("status", [401, 403, 429])
+    @respx.mock
+    async def test_a_rejected_token_is_unavailable(self, status: int) -> None:
+        respx.get(url__startswith=MAPBOX_PREFIX).mock(return_value=httpx.Response(status))
+
+        assert await basemap.mapbox_available(MAPBOX_TEST_KEY) is False
+
+    @respx.mock
+    async def test_an_accepted_token_is_available(self) -> None:
+        respx.get(url__startswith=MAPBOX_PREFIX).mock(
+            return_value=httpx.Response(200, content=IMAGERY_TILE)
+        )
+
+        assert await basemap.mapbox_available(MAPBOX_TEST_KEY) is True
+
+    @respx.mock
+    async def test_the_verdict_is_reused_within_the_recheck_window(self) -> None:
+        """A blocked account is probed once, not on every capability check."""
+        route = respx.get(url__startswith=MAPBOX_PREFIX).mock(return_value=httpx.Response(403))
+
+        for _ in range(5):
+            assert await basemap.mapbox_available(MAPBOX_TEST_KEY) is False
+        assert route.call_count == 1
+
+    @respx.mock
+    async def test_an_unreachable_mapbox_is_unavailable_and_probed_again(self) -> None:
+        """No network says nothing about the token, so the verdict is not cached."""
+        route = respx.get(url__startswith=MAPBOX_PREFIX).mock(
+            side_effect=httpx.ConnectError("offline")
+        )
+
+        assert await basemap.mapbox_available(MAPBOX_TEST_KEY) is False
+        assert await basemap.mapbox_available(MAPBOX_TEST_KEY) is False
+        assert route.call_count == 2
+
+    @respx.mock
+    async def test_tiles_stop_asking_mapbox_once_it_rejects_the_token(self) -> None:
+        mapbox = respx.get(url__startswith=MAPBOX_PREFIX).mock(return_value=httpx.Response(429))
+        respx.get(url__startswith=IMAGERY_PREFIX).mock(
+            return_value=httpx.Response(200, content=IMAGERY_TILE)
+        )
+        respx.get(url__startswith=LABELS_PREFIX).mock(return_value=httpx.Response(404))
+
+        for _ in range(3):
+            await basemap.fetch_composited_tile(x=1, y=2, z=3, mapbox_token=MAPBOX_TEST_KEY)
+
+        assert mapbox.call_count == 1, "a rejected token should be tried once, then skipped"
+        assert await basemap.mapbox_available(MAPBOX_TEST_KEY) is False
+
+    @respx.mock
+    async def test_a_missing_tile_does_not_condemn_the_token(self) -> None:
+        """404 is a coverage gap at one tile, not a rejection of the account."""
+        respx.get(url__startswith=MAPBOX_PREFIX).mock(return_value=httpx.Response(404))
+        respx.get(url__startswith=IMAGERY_PREFIX).mock(
+            return_value=httpx.Response(200, content=IMAGERY_TILE)
+        )
+        respx.get(url__startswith=LABELS_PREFIX).mock(return_value=httpx.Response(404))
+
+        await basemap.fetch_composited_tile(x=1, y=2, z=3, mapbox_token=MAPBOX_TEST_KEY)
+
+        assert basemap._MAPBOX_HEALTH.checked_at is None
+
+
 class TestGeocoding:
     """Matches must survive a partly malformed response."""
 

@@ -23,6 +23,7 @@ WEAK_SPEC: dict[str, Any] = {
         "admixtures": [],
     },
     "walling_material_id": "burnt_clay_brick",
+    "nominal_cover_mm": 25,
     "element_situation": "exposed",
 }
 
@@ -35,6 +36,7 @@ STRONG_SPEC: dict[str, Any] = {
         "admixtures": ["corrosion inhibitor"],
     },
     "walling_material_id": "fly_ash_brick",
+    "nominal_cover_mm": 50,
     "element_situation": "exposed",
 }
 
@@ -109,8 +111,8 @@ class TestResolvePin:
             "/api/score/resolve", json={"latitude": latitude, "longitude": longitude}
         )
 
-        assert response.status_code == 503, f"{where} should not be scoreable"
-        assert response.json()["error"]["code"] == "CLIMATE_PROFILE_UNAVAILABLE"
+        assert response.status_code == 404, f"{where} should not be scoreable"
+        assert response.json()["error"]["code"] == "LOCATION_NOT_COVERED"
 
     async def test_rejects_coordinates_outside_the_planet(self, client: AsyncClient) -> None:
         """Validation happens at the boundary, before any lookup runs."""
@@ -220,6 +222,66 @@ class TestDeterminism:
         assert first["recommended"]["score"] == second["recommended"]["score"]
 
 
+class TestOneSituation:
+    """The user's specification and the advice are judged in the same situation."""
+
+    async def test_an_omitted_nested_situation_follows_the_top_level(
+        self, client: AsyncClient
+    ) -> None:
+        """It used to default to "exposed" while the advice used "buried"."""
+        materials = {k: v for k, v in STRONG_SPEC.items() if k != "element_situation"}
+        response = await client.post(
+            "/api/score",
+            json={"district": "Madurai", "materials": materials, "element_situation": "buried"},
+        )
+
+        body = response.json()
+
+        def required_grade(side: str) -> float:
+            finding = next(
+                f for f in body[side]["findings"] if f["parameter"] == "concrete_grade_mpa"
+            )
+            grade: float = finding["required"]
+            return grade
+
+        assert response.status_code == 200
+        assert required_grade("proposed") == required_grade("recommended")
+
+    @pytest.mark.parametrize("path", ["/api/score", "/api/reports"])
+    async def test_a_contradicting_nested_situation_is_rejected(
+        self, client: AsyncClient, path: str
+    ) -> None:
+        materials = {**STRONG_SPEC, "element_situation": "exposed"}
+        response = await client.post(
+            path,
+            json={"district": "Madurai", "materials": materials, "element_situation": "buried"},
+        )
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+class TestAdviceNeverWorse:
+    """An over-specified build is told so, not "improved" downwards."""
+
+    async def test_over_specification_returns_the_same_specification(
+        self, client: AsyncClient
+    ) -> None:
+        over = {
+            **STRONG_SPEC,
+            "concrete": {**STRONG_SPEC["concrete"], "grade": "M45", "water_cement_ratio": 0.35},
+            "nominal_cover_mm": 75,
+            # The best-scoring walling for Salem's humidity, so nothing is left to improve.
+            "walling_material_id": "aac_block",
+        }
+        response = await client.post("/api/score", json={"district": "Salem", "materials": over})
+
+        body = response.json()
+        assert body["improvement"] == 0
+        for field in ("concrete", "nominal_cover_mm", "walling_material_id"):
+            assert body["recommended"][field] == body["proposed"][field]
+
+
 class TestValidation:
     """District and material inputs are untrusted."""
 
@@ -228,9 +290,10 @@ class TestValidation:
     ) -> None:
         response = await client.post("/api/score", json={"district": "Atlantis"})
 
-        assert response.status_code == 503
+        # A client error, not an outage: a typo must not look like a server fault.
+        assert response.status_code == 404
         error = response.json()["error"]
-        assert error["code"] == "CLIMATE_PROFILE_UNAVAILABLE"
+        assert error["code"] == "LOCATION_NOT_COVERED"
         assert "Coimbatore" in error["details"]["available_districts"]
 
     async def test_malformed_grade_is_rejected(self, client: AsyncClient) -> None:
@@ -249,6 +312,103 @@ class TestValidation:
         response = await client.post("/api/score", json={"district": "Salem", "budget": 100000})
 
         assert response.status_code == 422
+
+    @pytest.mark.parametrize("grade", ["M10", "M50", "M999"])
+    async def test_grade_outside_the_scored_range_is_rejected(
+        self, client: AsyncClient, grade: str
+    ) -> None:
+        """Well-formed but unsupported: M999 used to score higher than a real M30."""
+        bad = {**WEAK_SPEC, "concrete": {**WEAK_SPEC["concrete"], "grade": grade}}
+        response = await client.post("/api/score", json={"district": "Salem", "materials": bad})
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    async def test_grade_spelling_is_normalised(self, client: AsyncClient) -> None:
+        loose = {**WEAK_SPEC, "concrete": {**WEAK_SPEC["concrete"], "grade": "m 20"}}
+        response = await client.post("/api/score", json={"district": "Salem", "materials": loose})
+
+        assert response.status_code == 200
+        assert response.json()["proposed"]["concrete"]["grade"] == "M20"
+
+    async def test_unknown_cement_type_is_rejected(self, client: AsyncClient) -> None:
+        bad = {**WEAK_SPEC, "concrete": {**WEAK_SPEC["concrete"], "cement_type": "XYZ"}}
+        response = await client.post("/api/score", json={"district": "Salem", "materials": bad})
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+    @pytest.mark.parametrize("path", ["/api/score", "/api/reports"])
+    async def test_unknown_walling_material_is_rejected(
+        self, client: AsyncClient, path: str
+    ) -> None:
+        """An invented material used to skip the walling check and score as the best."""
+        bad = {**WEAK_SPEC, "walling_material_id": "unobtainium"}
+        response = await client.post(path, json={"district": "Salem", "materials": bad})
+
+        assert response.status_code == 422
+        error = response.json()["error"]
+        assert error["code"] == "UNKNOWN_MATERIAL"
+        assert error["details"]["unknown_codes"] == ["unobtainium"]
+        assert "fly_ash_brick" in error["details"]["known_codes"]
+
+    async def test_unknown_walling_material_is_rejected_for_a_drawn_area(
+        self, client: AsyncClient
+    ) -> None:
+        bad = {**WEAK_SPEC, "walling_material_id": "unobtainium"}
+        area = {"south": 11.0, "north": 11.2, "west": 76.9, "east": 77.1}
+        response = await client.post("/api/score/area", json={"area": area, "materials": bad})
+
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "UNKNOWN_MATERIAL"
+
+
+class TestCover:
+    """Cover is required, checked per member, and drives the service life."""
+
+    async def test_cover_is_required(self, client: AsyncClient) -> None:
+        missing = {k: v for k, v in STRONG_SPEC.items() if k != "nominal_cover_mm"}
+        response = await client.post("/api/score", json={"district": "Salem", "materials": missing})
+
+        assert response.status_code == 422
+
+    @pytest.mark.parametrize("cover", [0, -10, 500])
+    async def test_implausible_cover_is_rejected(self, client: AsyncClient, cover: float) -> None:
+        bad = {**STRONG_SPEC, "nominal_cover_mm": cover}
+        response = await client.post("/api/score", json={"district": "Salem", "materials": bad})
+
+        assert response.status_code == 422
+
+    async def test_member_is_echoed_and_sets_the_requirement(self, client: AsyncClient) -> None:
+        response = await client.post(
+            "/api/score",
+            json={
+                "district": "Salem",
+                "materials": {**STRONG_SPEC, "nominal_cover_mm": 45, "element_situation": "buried"},
+                "element_situation": "buried",
+                "member": "footing",
+            },
+        )
+
+        body = response.json()
+        assert body["proposed"]["member"] == "footing"
+        cover = next(
+            f for f in body["proposed"]["findings"] if f["parameter"] == "nominal_cover_mm"
+        )
+        assert cover["required"] == 50.0
+        assert cover["compliant"] is False
+        assert body["recommended"]["nominal_cover_mm"] == 50.0
+
+    async def test_thinner_cover_shortens_the_service_life(self, client: AsyncClient) -> None:
+        async def life(cover: float) -> float:
+            spec = {**STRONG_SPEC, "nominal_cover_mm": cover}
+            response = await client.post(
+                "/api/score", json={"district": "Salem", "materials": spec}
+            )
+            years: float = response.json()["proposed"]["service_life"]["years"]
+            return years
+
+        assert await life(25) < await life(45) < await life(60)
 
 
 class TestReportDownload:
@@ -290,4 +450,4 @@ class TestReportDownload:
     async def test_unknown_district_fails_before_rendering(self, client: AsyncClient) -> None:
         response = await client.post("/api/reports", json={"district": "Atlantis"})
 
-        assert response.status_code == 503
+        assert response.status_code == 404

@@ -74,7 +74,8 @@ class Settings(BaseSettings):
 
     # --- Gemini ------------------------------------------------------------
     gemini_api_key: str | None = None
-    gemini_model: str = "gemini-2.0-flash"
+    # gemini-2.0-flash was retired on 1 June 2026; the API now answers 404 for it.
+    gemini_model: str = "gemini-3.8-flash"
 
     # --- Earth Engine ------------------------------------------------------
     earth_engine_project_id: str | None = None

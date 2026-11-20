@@ -46,6 +46,9 @@ class ExposureClass:
         max_water_cement_ratio: Maximum free water/cement ratio.
         min_grade: Minimum concrete grade, e.g. ``"M30"``.
         min_grade_mpa: That grade as a number, for comparison.
+        nominal_cover_mm: Nominal cover to reinforcement for durability, IS 456
+            Table 16. Members can need more (clause 26.4.2); see
+            ``constants.MEMBER_MINIMUM_COVER_MM``.
         standard: The clause this comes from.
     """
 
@@ -57,6 +60,7 @@ class ExposureClass:
     max_water_cement_ratio: float
     min_grade: str
     min_grade_mpa: int
+    nominal_cover_mm: int
     standard: str
 
 

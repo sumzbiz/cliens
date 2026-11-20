@@ -218,6 +218,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reports/area": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download the client report for a drawn site as a PDF
+         * @description The same report, for a boundary drawn on the map rather than a named district.
+         *
+         *     A separate endpoint for the same reason `/score/area` is separate: a drawn
+         *     outline has no district name, and `ScoreRequest` requires one. Without this,
+         *     downloading the report after plotting a site failed validation before it ever
+         *     reached the engine.
+         */
+        post: operations["download_area_report_api_reports_area_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tiles/{z}/{x}/{y}": {
         parameters: {
             query?: never;
@@ -254,8 +279,9 @@ export interface paths {
          * @description Report the real zoom ceiling and the attribution that must be shown.
          *
          *     The client cannot hardcode either. Both change with which providers are
-         *     configured, and a client that assumed the deeper limit would let the user zoom
-         *     into blank tiles while crediting the wrong source.
+         *     working — a configured Mapbox token can still be rejected for the whole
+         *     account — and a client that assumed the deeper limit would let the user zoom
+         *     into placeholder tiles while crediting the wrong source.
          */
         get: operations["get_basemap_capabilities_api_basemap_get"];
         put?: never;
@@ -401,6 +427,13 @@ export interface components {
              * @enum {string}
              */
             element_situation: "enclosed" | "sheltered" | "exposed" | "buried" | "tidal";
+            /**
+             * Member
+             * @description The reinforced-concrete member, which sets its cover.
+             * @default beam
+             * @enum {string}
+             */
+            member: "slab" | "beam" | "column" | "footing";
         };
         /**
          * BasemapCapabilities
@@ -820,6 +853,11 @@ export interface components {
             /** Walling Material Id */
             walling_material_id: string;
             /**
+             * Nominal Cover Mm
+             * @description Nominal concrete cover to the reinforcement, in mm. Required: it is the largest single control on how long the steel stays protected.
+             */
+            nominal_cover_mm: number;
+            /**
              * Element Situation
              * @default exposed
              * @enum {string}
@@ -973,6 +1011,13 @@ export interface components {
              * @enum {string}
              */
             element_situation: "enclosed" | "sheltered" | "exposed" | "buried" | "tidal";
+            /**
+             * Member
+             * @description The reinforced-concrete member, which sets its cover.
+             * @default beam
+             * @enum {string}
+             */
+            member: "slab" | "beam" | "column" | "footing";
         };
         /**
          * ScoreResponse
@@ -1017,16 +1062,23 @@ export interface components {
             concrete: components["schemas"]["ConcreteMixInput"];
             /** Walling Material Id */
             walling_material_id: string;
+            /** Nominal Cover Mm */
+            nominal_cover_mm: number;
+            /**
+             * Member
+             * @enum {string}
+             */
+            member: "slab" | "beam" | "column" | "footing";
             /**
              * Score
-             * @description Headline 0-100 score, from the model.
+             * @description Headline 0-100 score, computed by the IS 456 rules engine.
              */
             score: number;
             /**
-             * Rules Score
-             * @description The same score computed directly by the rules engine.
+             * Model Score
+             * @description The ML model's estimate of the same score, returned as a cross-check.
              */
-            rules_score: number;
+            model_score: number;
             /**
              * Band
              * @enum {string}
@@ -1312,6 +1364,15 @@ export interface operations {
                     "application/json": components["schemas"]["PinResolutionResponse"];
                 };
             };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description The request did not match the expected shape. */
             422: {
                 headers: {
@@ -1321,7 +1382,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description No measured climate profile for that district, or models not trained. */
+            /** @description Climate profiles or models are not loaded on the server. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -1363,6 +1424,15 @@ export interface operations {
                     "application/json": components["schemas"]["ScoreResponse"];
                 };
             };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description The request did not match the expected shape. */
             422: {
                 headers: {
@@ -1372,7 +1442,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description No measured climate profile for that district, or models not trained. */
+            /** @description Climate profiles or models are not loaded on the server. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -1414,6 +1484,15 @@ export interface operations {
                     "application/json": components["schemas"]["ScoreResponse"];
                 };
             };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description The request did not match the expected shape. */
             422: {
                 headers: {
@@ -1423,7 +1502,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description No measured climate profile for that district, or models not trained. */
+            /** @description Climate profiles or models are not loaded on the server. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -1466,6 +1545,15 @@ export interface operations {
                     "application/pdf": unknown;
                 };
             };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description The request did not match the expected shape. */
             422: {
                 headers: {
@@ -1475,7 +1563,68 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description No measured climate profile for that district, or models not trained. */
+            /** @description Climate profiles or models are not loaded on the server. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    download_area_report_api_reports_area_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AreaScoreRequest"];
+            };
+        };
+        responses: {
+            /** @description The report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description The request did not match the expected shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Climate profiles or models are not loaded on the server. */
             503: {
                 headers: {
                     [name: string]: unknown;

@@ -5,8 +5,8 @@
  * situation without seeing which class it produced, then chose a grade without
  * knowing the minimum it would be judged against, and only learned either on the
  * score page. This asks the server — the only place the IS 456 rules live — and
- * returns the class and the three Table 5 limits, so both steps can show them
- * while the choice is being made.
+ * returns the class, the three Table 5 limits and the nominal cover the member
+ * needs, so both steps can show them while the choice is being made.
  *
  * It reuses the scoring endpoint in recommend mode (no materials), whose reply
  * carries the exposure class and the requirements the recommendation was checked
@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 import { apiClient } from '@/lib/api-client';
 import { boundsOf } from '@/lib/geo';
 import type { Area } from '@/state/session-context';
-import type { ElementSituation, ScoreResponse } from '@/types/api';
+import type { ElementSituation, MemberType, ScoreResponse } from '@/types/api';
 
 export interface SiteRequirements {
   exposureLabel: string;
@@ -26,6 +26,8 @@ export interface SiteRequirements {
   minGradeMpa: number;
   minCementKgM3: number;
   maxWaterCementRatio: number;
+  /** IS 456 Table 16, raised by clause 26.4.2 for columns and footings. */
+  minCoverMm: number;
 }
 
 export type SiteRequirementsState =
@@ -48,7 +50,8 @@ function requirementsFrom(response: ScoreResponse): SiteRequirements | null {
   const grade = required('concrete_grade_mpa');
   const cement = required('cement_content_kg_m3');
   const ratio = required('water_cement_ratio');
-  if (grade === undefined || cement === undefined || ratio === undefined) {
+  const cover = required('nominal_cover_mm');
+  if (grade === undefined || cement === undefined || ratio === undefined || cover === undefined) {
     return null;
   }
   return {
@@ -57,16 +60,18 @@ function requirementsFrom(response: ScoreResponse): SiteRequirements | null {
     minGradeMpa: grade,
     minCementKgM3: cement,
     maxWaterCementRatio: ratio,
+    minCoverMm: cover,
   };
 }
 
 export function useSiteRequirements(
   district: string,
   area: Area | null,
-  situation: ElementSituation
+  situation: ElementSituation,
+  member: MemberType
 ): SiteRequirementsState {
   const bounds = area === null ? null : boundsOf(area);
-  const key = `${district}|${JSON.stringify(bounds)}|${situation}`;
+  const key = `${district}|${JSON.stringify(bounds)}|${situation}|${member}`;
   const cached = cache.get(key);
 
   const [state, setState] = useState<SiteRequirementsState>(
@@ -84,8 +89,8 @@ export function useSiteRequirements(
     setState({ status: 'loading' });
     const pending =
       bounds !== null
-        ? apiClient.scoreArea(bounds, null, situation)
-        : apiClient.score(district, null, situation);
+        ? apiClient.scoreArea(bounds, null, situation, member)
+        : apiClient.score(district, null, situation, member);
 
     pending
       .then((response) => {
@@ -112,7 +117,7 @@ export function useSiteRequirements(
     return () => {
       cancelled = true;
     };
-    // `key` encodes district, bounds and situation; listing those objects
+    // `key` encodes district, bounds, situation and member; listing those objects
     // directly would refire on every render, since `bounds` is rebuilt each time.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);

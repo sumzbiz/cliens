@@ -23,6 +23,7 @@ from app.services.rules_engine import (
     MaterialSelection,
     classify_exposure,
     parse_grade_mpa,
+    required_cover_mm,
 )
 
 logger = get_logger(__name__)
@@ -52,7 +53,7 @@ WALLING_FEATURE_IDS: tuple[str, ...] = (
 
 # Cement types and admixtures, because matching them is what earns the
 # recommendation credit in the rules score.
-CEMENT_FEATURE_TYPES: tuple[str, ...] = ("OPC", "PPC", "PSC")
+CEMENT_FEATURE_TYPES: tuple[str, ...] = constants.SUPPORTED_CEMENT_TYPES
 ADMIXTURE_FEATURES: dict[str, str] = {
     "has_corrosion_inhibitor": "corrosion inhibitor",
     "has_waterproofing_admixture": "waterproofing admixture",
@@ -74,6 +75,11 @@ FEATURE_COLUMNS: tuple[str, ...] = (
     "grade_mpa",
     "cement_content_kg_m3",
     "water_cement_ratio",
+    # Cover as proposed, and the cover the rules require for this exposure class
+    # and member — handed over for the same reason as exposure_severity: the
+    # requirement is deterministic, and the score turns on the gap between them.
+    "nominal_cover_mm",
+    "required_cover_mm",
     "walling_absorption_percent",
     *(f"walling_{material}" for material in WALLING_FEATURE_IDS),
     *(f"cement_{cement}" for cement in CEMENT_FEATURE_TYPES),
@@ -109,6 +115,8 @@ def build_features(
         "grade_mpa": float(parse_grade_mpa(selection.concrete.grade)),
         "cement_content_kg_m3": selection.concrete.cement_content_kg_m3,
         "water_cement_ratio": selection.concrete.water_cement_ratio,
+        "nominal_cover_mm": selection.nominal_cover_mm,
+        "required_cover_mm": required_cover_mm(exposure, selection.member),
         # Materials absent from the published properties table fall back to the
         # IS 1077 reference absorption rather than to zero, which would read as a
         # perfect material.

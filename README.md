@@ -17,11 +17,15 @@ Built by **Team Zenovators** for the **Tech For Good (Build with AI)** hackathon
 
 ### Overall Architecture
 
-![CLIENS — Overall Architecture](https://github.com/Build-with-AI-Code-for-Communities/cities-team-263-zenovators/blob/d9568be7a601ff8ac2262ac369a9db5dbadfd279/ChatGPT%20Image%20Aug%209%2C%202026%2C%2002_52_33%20PM.png)
+![CLIENS — Overall Architecture](docs/images/architecture-system.jpeg)
 
 ### Cloud Architecture
 
-![CLIENS — Cloud Architecture](https://github.com/Build-with-AI-Code-for-Communities/cities-team-263-zenovators/blob/bcf6c3bd9f5c70bde76b71b7c9d23185c7c81187/bf6c3464-b8a6-4093-9861-884f3f90e3f0.jpeg)
+![CLIENS — Cloud Architecture](docs/images/architecture-aws.jpeg)
+
+The [target architecture](docs/images/architecture-target.png), including the planned
+Earth Engine, Gemini and IMD integrations that are not built yet, is in
+[`docs/`](docs/README.md).
 
 
 ---
@@ -33,11 +37,11 @@ Built by **Team Zenovators** for the **Tech For Good (Build with AI)** hackathon
 **Repository:** https://github.com/Build-with-AI-Code-for-Communities/cities-team-263-zenovators
 
 | Name |
-| --- | --- |
+| --- |
 | **Naveen** |
-| **Suman** | 
-| **Surjune** | 
-| **Gowdham Karthik** | 
+| **Suman** |
+| **Surjune** |
+| **Gowdham Karthik** |
 
 ---
 
@@ -82,9 +86,9 @@ A five-step flow:
 | Step | What happens |
 | --- | --- |
 | **1 · Location** | Plot your site on a 3D satellite globe or a flat satellite map. Click each corner to outline the plot; the area is computed by PostGIS and saved. |
-| **2 · Exposure** | Say how the concrete sits — enclosed, sheltered, exposed, buried or tidal. |
+| **2 · Exposure** | Say how the concrete sits — enclosed, sheltered, exposed, buried or tidal — and which member it is: slab, beam, column or footing. |
 | **3 · Approach** | Score *your* specification, or ask for a recommended one. |
-| **4 · Materials** | Concrete grade, cement content and type, water/cement ratio, walling material. |
+| **4 · Materials** | Concrete grade, cement content and type, water/cement ratio, **nominal cover**, walling material. |
 | **5 · Score** | A 0–100 score, every compliance check, an estimated service life, and the specification we'd recommend instead. |
 
 Also included:
@@ -154,7 +158,7 @@ to coast (computed from the land/sea mask in the sea-surface-temperature field).
 
 ## 5. The Scoring Engine
 
-A **hybrid**: a deterministic rules engine plus a model that smooths it.
+A deterministic rules engine sets the score; an ML model estimates the same score as a cross-check.
 
 **1. Rules engine — `services/rules_engine.py`**
 Classifies the IS 456 exposure class from how the element sits, following
@@ -162,27 +166,40 @@ Table 3 situation by situation: rain, wetting and drying and severe condensation
 escalate only an *exposed* surface, and distance to the coast escalates each
 situation as Table 3 words it (a sheltered element in coastal air is Moderate, an
 exposed one Severe, one in spray reach Very Severe). Then checks the
-proposed mix against **IS 456 Table 5** minimums: concrete grade, cement content,
-maximum water/cement ratio, and walling suitability. Every finding cites its
-standard.
+proposed mix against **IS 456 Table 5** minimums (concrete grade, cement content,
+maximum water/cement ratio), the **nominal cover** against **IS 456 Table 16** raised
+by **clause 26.4.2** for the member (columns at least 40 mm, footings at least
+50 mm), and walling suitability. Every finding cites its standard.
 
-**2. ML model — `GradientBoostingRegressor`**
+**What it is not.** This scores the *durability of one concrete element* for the
+environment it sits in — which IS 456 sets per element, independent of how many
+storeys the building has. It is **not** a structural or hazard-loss assessment:
+it knows nothing of storeys, structural system, loads, plinth height or seismic
+zone, so it cannot say whether a building will stand, flood or remain insurable.
+
+**2. ML model — `GradientBoostingRegressor` (cross-check)**
 
 | Metric | Value |
 | --- | --- |
-| R² | **0.9999** |
-| MAE | **0.15** (on a 0–100 score) |
-| Training samples | 34,809 |
-| Test samples | 8,703 |
+| R² | **0.9992** |
+| MAE | **0.50** (on a 0–100 score) |
+| Training samples | 69,619 |
+| Test samples | 17,405 |
 | Seed | 20231204 (fixed — scoring is deterministic) |
 
-Top feature importances: `exposure_severity` 0.413 · `grade_mpa` 0.297 ·
-`water_cement_ratio` 0.135 · `walling_burnt_clay_brick` 0.089 ·
-`cement_content_kg_m3` 0.054
+Top feature importances: `exposure_severity` 0.336 · `nominal_cover_mm` 0.220 ·
+`required_cover_mm` 0.175 · `grade_mpa` 0.135 · `water_cement_ratio` 0.061
 
-Measured against the rules score over every district, situation and a range of
-realistic mixes, the headline score is within 0.45 points on average (3.2 at
-worst). Training and inference build features through one shared function,
+Measured against the rules score over 30,000 sampled specifications across every
+district, situation, member, cover, walling and cement type, the model is within
+0.45 points on average (1.4 at the 95th percentile, 2.4 at the 99th, 6.3 at worst).
+
+**Why the headline is the rules score, not the model.** A tree ensemble trained on a
+grid of values is a staircase between and beyond its training points. Sweeping one
+input at a time showed it: every w/c from 0.58 to 0.70 scored an identical 66.9
+while the rules fell to 56.0, and 45 mm of cover scored *below* 40 mm. The rules
+score is exact, continuous and monotone in every input, so it is what the page,
+the comparison and the PDF report; the model's estimate is shown beside it. Training and inference build features through one shared function,
 `app/ml/quality_score.build_features`. Retrain with `npm run train:models`.
 
 > **What this model is.** It is trained on **scenarios labelled by the rules
@@ -199,19 +216,23 @@ The results page shows an estimated service life for both the proposed and the
 recommended specification.
 
 **How it's derived** — anchored on the **50-year design life** the IS 456
-durability provisions are written to deliver. A mix sitting exactly on its
-exposure class's limits returns exactly 50 years. From there:
+durability provisions are written to deliver. A specification sitting exactly on
+its exposure class's limits returns exactly 50 years. From there:
 
-- **Water/cement ratio** dominates. Reinforcement corrosion is diffusion-
-  controlled and the diffusion coefficient rises roughly exponentially with w/c,
-  so life scales as `exp(k × (required − provided))`. The exponent used is at the
-  conservative end of the published range *(fib Bulletin 34; Papadakis, Vayenas &
-  Fardis, ACI Materials Journal 88(2), 1991)*.
+- **Cover** dominates. Corrosion starts once chlorides or the carbonation front
+  cross the cover, and both advance with the square root of time (Fick's second
+  law; `x = K√t`), so the time to cross a cover grows with its **square**: life
+  scales as `(provided ÷ required cover)²`. Halving the cover quarters the time.
+- **Water/cement ratio** sets how fast that ingress happens. The diffusion
+  coefficient rises roughly exponentially with w/c, so life also scales as
+  `exp(k × (required − provided))`. The exponent used is at the conservative end
+  of the published range *(fib Bulletin 34; Papadakis, Vayenas & Fardis, ACI
+  Materials Journal 88(2), 1991)*.
 - **Falling short** of the minimum grade or cement content applies a further
   reduction, because the 50-year target's assumptions no longer hold.
 
 Reported as a **range**, never a single year — two structures built to identical
-specifications diverge by decades on workmanship and cover accuracy alone.
+specifications diverge by decades on workmanship and as-built cover alone.
 
 > This answers *"how does this specification compare to one the code says lasts
 > 50 years"* — **not** *"when will this building fall down."*
@@ -306,19 +327,24 @@ Full detail, including what this setup deliberately does *not* do, is in
 ## 10. Testing
 
 ```bash
-npm run test:all      # lint + typecheck + backend + frontend
+npm run test:all      # lint + typecheck + API type drift + backend + frontend
 ```
 
 | | |
 | --- | --- |
-| Backend tests | **350** |
-| Frontend tests | **4** |
+| Backend tests | **386** |
+| Frontend tests | **17** |
 | Type checking | `mypy --strict` clean · `tsc --strict` clean |
 | Linting | `ruff` + `black` clean · `eslint` clean |
+| API contract | `npm run check:types` fails if the committed frontend types differ from the backend's OpenAPI spec |
+
+`npm run smoke` walks the live API end to end against a running backend (readiness,
+scoring with cover checks, area scoring, the PDF, and the out-of-coverage refusal).
 
 Tests never make real network calls — every external client is mocked with
-`respx`. Integration tests run against a real PostGIS database, so a broken
-extension or schema drift fails the suite rather than only failing in production.
+`respx`. Integration tests run against a real PostGIS database (`npm run db:up`),
+so a broken extension or schema drift fails the suite rather than only failing in
+production. Unit tests that never touch the database run without it.
 
 ---
 
@@ -341,6 +367,30 @@ specification compares to IS 456 for the measured climate. It is not a structura
 analysis and does not consider foundations, seismic design, or workmanship.
 
 **The ML model learned a rule set, not reality.** See §5.
+
+**Cover is checked as specified, not as built.** On site, cover routinely comes
+out thinner than drawn, and service life goes with its square — so the estimate
+is only as good as the cover actually achieved. The Table 16 notes allowing 5 mm
+less in some cases are not applied (the check errs safe), and the column rule
+that cover must also be at least the bar diameter is not checked, because bar
+size is not an input.
+
+**Legacy tables remain.** The database still carries the `scores` and `reports`
+tables from the abandoned damage model. Nothing reads or writes them; dropping
+them needs a migration and is left as a deliberate, separate change.
+
+**The model's training range is narrower than the form's.** It was trained on
+cement contents of 260–380 kg/m³ and water/cement ratios of 0.35–0.60, while the
+form accepts 100–800 kg/m³ and 0.30–0.70. Outside the trained range the headline
+score is an extrapolation; the rules score and every compliance finding shown
+beside it are still exact. Grades (M15–M45), cement types (OPC, PPC, PSC) and
+walling materials outside what the model and knowledge base know are rejected
+outright. Retraining over the full form range would close this.
+
+**Deep satellite zoom depends on the Mapbox account.** When Mapbox rejects the
+token (revoked, URL-restricted, or the account's tile access is blocked), the map
+detects it, caps zoom at Esri's level 19 and credits Esri, rather than showing
+placeholder tiles. Restoring zoom 20–22 needs the Mapbox account fixed.
 
 **Coverage is Tamil Nadu only** — 37 districts, bounded by the source GRIB extent
 (8.25–13.0°N, 76.75–80.0°E). Anywhere outside is refused, not guessed.
@@ -365,7 +415,7 @@ This repository is the documentation and the proof of work for our submission.
 | Offline data pipeline | [`ml/`](ml/) — GRIB → CSV → district profiles → model |
 | Backend | [`backend/app/`](backend/app/) — strict `routes → services → repositories → core` layering |
 | Frontend | [`frontend/src/`](frontend/src/) |
-| Test suite | 350 backend + 4 frontend, all passing |
+| Test suite | 386 backend + 17 frontend, all passing |
 | Engineering conventions | [`CLAUDE.md`](CLAUDE.md) |
 | Commit history | Every architectural decision and bug fix is recorded in the log |
 

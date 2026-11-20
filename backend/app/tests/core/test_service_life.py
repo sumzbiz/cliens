@@ -20,6 +20,8 @@ class TestBaseline:
         years = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.50,
             provided_water_cement_ratio=0.50,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=0.0,
         )
 
@@ -31,6 +33,8 @@ class TestBaseline:
         years = calculations.estimated_service_life_years(
             required_water_cement_ratio=limit,
             provided_water_cement_ratio=limit,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=0.0,
         )
 
@@ -44,6 +48,8 @@ class TestWaterCementRatio:
         years = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.50,
             provided_water_cement_ratio=0.40,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=0.0,
         )
 
@@ -53,6 +59,8 @@ class TestWaterCementRatio:
         years = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.50,
             provided_water_cement_ratio=0.60,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=0.0,
         )
 
@@ -67,11 +75,15 @@ class TestWaterCementRatio:
         one_step = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.50,
             provided_water_cement_ratio=0.45,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=0.0,
         )
         two_steps = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.50,
             provided_water_cement_ratio=0.40,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=0.0,
         )
 
@@ -85,6 +97,8 @@ class TestWaterCementRatio:
             calculations.estimated_service_life_years(
                 required_water_cement_ratio=0.50,
                 provided_water_cement_ratio=ratio,
+                required_cover_mm=45.0,
+                provided_cover_mm=45.0,
                 worst_other_shortfall_ratio=0.0,
             )
             for ratio in ratios
@@ -100,11 +114,15 @@ class TestShortfallPenalty:
         compliant = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.50,
             provided_water_cement_ratio=0.50,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=0.0,
         )
         deficient = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.50,
             provided_water_cement_ratio=0.50,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=0.20,
         )
 
@@ -115,6 +133,8 @@ class TestShortfallPenalty:
         years = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.50,
             provided_water_cement_ratio=0.50,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=5.0,
         )
 
@@ -125,11 +145,15 @@ class TestShortfallPenalty:
         neutral = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.50,
             provided_water_cement_ratio=0.50,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=0.0,
         )
         surplus = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.50,
             provided_water_cement_ratio=0.50,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=-0.5,
         )
 
@@ -143,6 +167,8 @@ class TestBounds:
         years = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.60,
             provided_water_cement_ratio=0.25,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=0.0,
         )
 
@@ -152,6 +178,8 @@ class TestBounds:
         years = calculations.estimated_service_life_years(
             required_water_cement_ratio=0.35,
             provided_water_cement_ratio=1.20,
+            required_cover_mm=45.0,
+            provided_cover_mm=45.0,
             worst_other_shortfall_ratio=0.0,
         )
 
@@ -179,3 +207,36 @@ class TestInterval:
 
         assert upper == constants.MAX_ESTIMATED_SERVICE_LIFE_YEARS
         assert lower == constants.MIN_ESTIMATED_SERVICE_LIFE_YEARS
+
+
+class TestCover:
+    """Time to corrosion grows with the square of the cover the ingress must cross."""
+
+    @staticmethod
+    def life(provided_cover_mm: float, required_cover_mm: float = 40.0) -> float:
+        return calculations.estimated_service_life_years(
+            required_water_cement_ratio=0.45,
+            provided_water_cement_ratio=0.45,
+            required_cover_mm=required_cover_mm,
+            provided_cover_mm=provided_cover_mm,
+            worst_other_shortfall_ratio=0.0,
+        )
+
+    def test_required_cover_gives_the_design_life(self) -> None:
+        assert self.life(40.0) == pytest.approx(constants.DESIGN_SERVICE_LIFE_YEARS)
+
+    def test_half_the_cover_gives_a_quarter_of_the_life(self) -> None:
+        """Fick's law and sqrt(t) carbonation both put cover in squared."""
+        assert self.life(20.0) == pytest.approx(constants.DESIGN_SERVICE_LIFE_YEARS / 4)
+
+    def test_extra_cover_buys_time_quadratically(self) -> None:
+        assert self.life(48.0) == pytest.approx(constants.DESIGN_SERVICE_LIFE_YEARS * 1.44)
+
+    def test_the_estimate_stays_within_its_bounds(self) -> None:
+        assert self.life(1.0) == constants.MIN_ESTIMATED_SERVICE_LIFE_YEARS
+        assert self.life(400.0) == constants.MAX_ESTIMATED_SERVICE_LIFE_YEARS
+
+    @pytest.mark.parametrize(("required", "provided"), [(0.0, 40.0), (40.0, 0.0), (40.0, -5.0)])
+    def test_a_non_positive_cover_is_rejected(self, required: float, provided: float) -> None:
+        with pytest.raises(ValueError, match="covers must be positive"):
+            self.life(provided, required)

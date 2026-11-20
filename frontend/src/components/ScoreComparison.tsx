@@ -11,7 +11,13 @@
  */
 import { motion, useReducedMotion } from 'motion/react';
 
-import { bandFillClass, bandTextClass, bandVerdict, formatDelta, formatScore } from '@/lib/format';
+import {
+  bandFillClass,
+  bandTextClass,
+  complianceVerdict,
+  formatDelta,
+  formatScore,
+} from '@/lib/format';
 import type { ScoredSelection } from '@/types/api';
 
 const TRACK_HEIGHT = 220;
@@ -70,11 +76,14 @@ export function ScoreComparison({
   proposed,
   recommended,
   improvement,
+  changeCount,
   evaluatedOwnMaterials,
 }: {
   proposed: ScoredSelection;
   recommended: ScoredSelection;
   improvement: number;
+  /** How many parameters the recommendation changes; 0 when it is the user's own. */
+  changeCount: number;
   evaluatedOwnMaterials: boolean;
 }) {
   return (
@@ -107,10 +116,15 @@ export function ScoreComparison({
       </div>
 
       <p className="mt-7 border-t border-white/10 pt-5 text-sm leading-relaxed text-ink-2">
-        {bandVerdict(proposed.band)}{' '}
-        {improvement > 0
-          ? `Changing to the specification on the right would gain you ${formatDelta(improvement)} points.`
-          : 'The specification on the right would not improve on it.'}
+        {complianceVerdict(
+          proposed,
+          evaluatedOwnMaterials ? 'Your specification' : 'A typical local build'
+        )}{' '}
+        {changeCount === 0
+          ? 'It already meets or beats every target we would set for this site, so we would not change anything.'
+          : improvement > 0
+            ? `Changing to the specification on the right would gain you ${formatDelta(improvement)} points.`
+            : 'The changes below matter for durability but barely move the score.'}
       </p>
     </section>
   );

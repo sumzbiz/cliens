@@ -3,13 +3,15 @@
  *
  * The flow is five routes, so the answers cannot live in a screen component —
  * navigating would discard them. This holds the accumulating specification and the
- * district catalogue, and nothing else. It deliberately does *not* hold the score:
+ * district catalogue, and nothing else. The specification and any drawn outline
+ * are also mirrored to sessionStorage, so a refresh does not lose them. It deliberately does *not* hold the score:
  * that belongs to the results page, which fetches it, so a stale score can never be
  * shown next to freshly edited inputs.
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { apiClient } from '@/lib/api-client';
+import { loadSession, saveSession } from '@/state/persisted-session';
 import {
   SessionContext,
   type Area,
@@ -20,13 +22,15 @@ import type { ConcreteMixInput, DistrictList } from '@/types/api';
 
 /**
  * A conventional, unremarkable specification — M20 at 300 kg/m3 and w/c 0.55 with
- * red brick. Chosen as the starting point precisely because it is what gets built
- * by default, so the first score a user sees is a fair reading of the status quo
- * rather than a strawman or a ringer.
+ * 20 mm cover and red brick: the code's Mild-exposure floor, matching the backend's
+ * conventional baseline. Chosen as the starting point precisely because it is what
+ * gets built by default, so the first score a user sees is a fair reading of the
+ * status quo rather than a strawman or a ringer.
  */
 const DEFAULT_SPECIFICATION: SiteSpecification = {
   district: '',
   situation: 'exposed',
+  member: 'beam',
   concrete: {
     grade: 'M20',
     cement_content_kg_m3: 300,
@@ -34,15 +38,24 @@ const DEFAULT_SPECIFICATION: SiteSpecification = {
     cement_type: 'OPC',
     admixtures: [],
   },
+  coverMm: 20,
   wallingMaterialId: 'burnt_clay_brick',
   evaluateOwnMaterials: true,
 };
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [spec, setSpec] = useState<SiteSpecification>(DEFAULT_SPECIFICATION);
-  const [area, setArea] = useState<Area | null>(null);
+  // Read once: a refresh resumes where the user was instead of at step one.
+  const [restored] = useState(() => loadSession());
+  const [spec, setSpec] = useState<SiteSpecification>(
+    () => restored?.spec ?? DEFAULT_SPECIFICATION
+  );
+  const [area, setArea] = useState<Area | null>(() => restored?.area ?? null);
   const [districts, setDistricts] = useState<DistrictList | null>(null);
   const [districtsError, setDistrictsError] = useState<unknown>(null);
+
+  useEffect(() => {
+    saveSession({ spec, area });
+  }, [spec, area]);
 
   // Fetched once for the whole session rather than per page: the globe, the
   // search popup and the results page all need it, and it does not change.

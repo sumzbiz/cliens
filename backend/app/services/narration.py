@@ -120,8 +120,13 @@ class NarrationService:
 
     @property
     def available(self) -> bool:
-        """Whether narration can be produced at all."""
-        return self._client.configured
+        """Whether narration can be produced at all.
+
+        False once every key has been found exhausted, not only when none is
+        configured: the capabilities endpoint reports this, and the client hides
+        its Listen buttons rather than offering audio that can only fail.
+        """
+        return self._client.has_usable_key
 
     async def narrate(self, text: str) -> tuple[bytes, bool]:
         """Audio for the given text, and whether it came from cache.

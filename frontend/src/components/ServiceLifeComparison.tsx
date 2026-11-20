@@ -145,7 +145,7 @@ export function ServiceLifeComparison({
       {/* The axis is only meaningful if its scale is stated. */}
       <div
         aria-hidden="true"
-        className="tabular mt-2 flex justify-between text-[10px] text-ink-3/60"
+        className="tabular mt-2 flex justify-between text-[11px] text-ink-3"
       >
         <span>0</span>
         <span>{AXIS_MAX_YEARS / 2} years</span>

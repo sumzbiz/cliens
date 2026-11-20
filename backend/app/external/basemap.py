@@ -15,6 +15,7 @@ layers into one URL, which is all the renderer can consume.
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass
 from io import BytesIO
 
@@ -65,6 +66,71 @@ LABELS_URL = (
 NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 
 
+@dataclass(slots=True)
+class _MapboxHealth:
+    """Whether Mapbox last served imagery for the token, and when that was learned.
+
+    Mutable and process-wide on purpose, like the Sarvam key ring: a token Mapbox
+    rejects is discovered once per recheck window rather than on every tile.
+    """
+
+    available: bool = False
+    checked_at: float | None = None
+
+    def is_fresh(self, now: float) -> bool:
+        """Whether the last verdict is recent enough to trust."""
+        return (
+            self.checked_at is not None
+            and now - self.checked_at < constants.MAPBOX_HEALTH_RECHECK_SECONDS
+        )
+
+    def record(self, response: httpx.Response | BaseException, now: float) -> None:
+        """Update the verdict from a Mapbox response.
+
+        Only a usable tile or an outright rejection of the token changes it. A
+        transport error or a missing tile says nothing about the token.
+        """
+        if isinstance(response, BaseException):
+            return
+        if response.status_code == httpx.codes.OK:
+            self.available, self.checked_at = True, now
+        elif response.status_code in constants.MAPBOX_REJECTION_STATUSES:
+            if self.available or self.checked_at is None:
+                logger.warning("mapbox_token_rejected", status_code=response.status_code)
+            self.available, self.checked_at = False, now
+
+
+_MAPBOX_HEALTH = _MapboxHealth()
+
+
+async def mapbox_available(token: str | None) -> bool:
+    """Whether Mapbox currently serves imagery for this token.
+
+    A configured token is not the same as a working one: Mapbox can refuse it for
+    the whole account. Reporting "configured" as "available" advertised zoom 22,
+    and above Esri's zoom 19 the user then saw only "Map data not yet available"
+    placeholder tiles. When the last verdict is stale this probes one low-zoom
+    tile, so even the first capability check reflects the account's real state.
+    """
+    if token is None:
+        return False
+    now = time.monotonic()
+    if not _MAPBOX_HEALTH.is_fresh(now):
+        probe = await _fetch(get_client(), MAPBOX_IMAGERY_URL.format(x=0, y=0, z=0, token=token))
+        _MAPBOX_HEALTH.record(probe, now)
+        if not _MAPBOX_HEALTH.is_fresh(now):
+            # Unreachable rather than rejected: report unavailable for now, and
+            # leave the verdict stale so the next call probes again.
+            return False
+    return _MAPBOX_HEALTH.available
+
+
+def reset_mapbox_health() -> None:
+    """Forget the last Mapbox verdict, so tests cannot leak state into each other."""
+    _MAPBOX_HEALTH.available = False
+    _MAPBOX_HEALTH.checked_at = None
+
+
 @dataclass(frozen=True, slots=True)
 class GeocodeResult:
     """One place matched by the geocoder."""
@@ -102,11 +168,17 @@ async def fetch_composited_tile(x: int, y: int, z: int, mapbox_token: str | None
         _fetch(client, IMAGERY_URL.format(x=x, y=y, z=z)),
         _fetch(client, LABELS_URL.format(x=x, y=y, z=z)),
     ]
-    if mapbox_token is not None:
+    now = time.monotonic()
+    # A token Mapbox has rejected is not retried on every tile; it would only add
+    # a wasted round trip until the recheck window lapses.
+    mapbox_rejected = _MAPBOX_HEALTH.is_fresh(now) and not _MAPBOX_HEALTH.available
+    if mapbox_token is not None and not mapbox_rejected:
         requests.append(
             _fetch(client, MAPBOX_IMAGERY_URL.format(x=x, y=y, z=z, token=mapbox_token))
         )
     esri_response, labels_response, *mapbox_response = await asyncio.gather(*requests)
+    if mapbox_response:
+        _MAPBOX_HEALTH.record(mapbox_response[0], now)
 
     # Decoding, compositing and re-encoding are CPU-bound. Run inline they stall
     # the event loop, so every other tile the map is waiting on queues behind this

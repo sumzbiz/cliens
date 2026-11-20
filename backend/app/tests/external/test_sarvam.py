@@ -111,6 +111,25 @@ class TestKeyFailover:
         # The typed code is what lets the interface fall back to text silently.
         assert error.value.code == "VOICE_UNAVAILABLE"
 
+    @respx.mock
+    async def test_usability_tracks_exhaustion(self) -> None:
+        """Capabilities must stop offering voice once no key can produce it."""
+        respx.post(constants.SARVAM_TTS_ENDPOINT).mock(
+            side_effect=[httpx.Response(429), _ok(), httpx.Response(403)]
+        )
+        client = _client()
+        usable = [client.has_usable_key]
+
+        await client.synthesise("ஒன்று")  # primary spent, secondary succeeds
+        usable.append(client.has_usable_key)
+
+        with pytest.raises(VoiceUnavailableError):
+            await client.synthesise("இரண்டு")  # secondary spent too
+        usable.append(client.has_usable_key)
+
+        assert usable == [True, True, False]
+        assert client.configured is True, "keys are still configured, just unusable"
+
     async def test_no_keys_configured_is_reported_not_crashed(self) -> None:
         client = SarvamTtsClient((), speaker="kavitha", language="ta-IN")
 

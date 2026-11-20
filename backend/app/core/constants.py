@@ -19,21 +19,20 @@ from __future__ import annotations
 from typing import Final
 
 # ---------------------------------------------------------------------------
-# Scoring horizon
+# Year bounds
 #
-# CALIBRATED. The product's stated window. 2025 is "today" for a permit decision
-# and 2055 is a 30-year horizon, which matches the term of a typical Indian home
-# loan — the period over which a lender or insurer carries the risk.
+# CALIBRATED. 2025 to 2055: a 30-year window, the term of a typical Indian home
+# loan. Retained for the shared Year type and the legacy `scores` table's
+# crossing_year constraint; no current score is expressed in years of this window.
 # ---------------------------------------------------------------------------
 HORIZON_START_YEAR: Final[int] = 2025
 HORIZON_END_YEAR: Final[int] = 2055
-HORIZON_YEARS: Final[tuple[int, ...]] = tuple(range(HORIZON_START_YEAR, HORIZON_END_YEAR + 1))
 
 # ---------------------------------------------------------------------------
-# Hazard reference intensities
+# Climate thresholds for the reference-table recommendations
 #
-# Each hazard is normalised to a dimensionless intensity by dividing the projected
-# value by its reference. An intensity of 1.0 means "at the reference severity".
+# A measured climate at or beyond these triggers the cyclone or heat
+# recommendations in the knowledge base.
 # ---------------------------------------------------------------------------
 
 # CODIFIED. IS 875 (Part 3): 2015, Wind Loads on Buildings and Structures — basic
@@ -42,83 +41,23 @@ HORIZON_YEARS: Final[tuple[int, ...]] = tuple(range(HORIZON_START_YEAR, HORIZON_
 # to this speed, so it is the natural point at which design margin is exhausted.
 WIND_REFERENCE_MS: Final[float] = 50.0
 
-# CODIFIED. IMD rainfall classification: "extremely heavy rainfall" is >= 204.5 mm
-# in 24 hours. Used as the reference for pluvial flood loading.
-RAINFALL_REFERENCE_MM_PER_DAY: Final[float] = 204.5
-
 # CODIFIED. IMD heat wave criteria for the plains: a heat wave is declared when the
-# maximum temperature reaches 40 °C. Used as the reference for heat loading.
+# maximum temperature reaches 40 °C.
 HEAT_REFERENCE_MAX_TEMP_C: Final[float] = 40.0
 
-# LITERATURE. Sherwood & Huber (2010), "An adaptability limit to climate change due
-# to heat stress", PNAS 107(21):9552-9555 — sustained wet-bulb temperature above
-# 35 °C exceeds human thermoregulation, i.e. unlivable regardless of construction.
-# This is a hard override on the score: no material choice defeats it.
-WET_BULB_SURVIVABILITY_LIMIT_C: Final[float] = 35.0
-
-# CALIBRATED. Normalised hazard intensity is clamped to this ceiling. Beyond roughly
-# twice the design reference the damage relationship is no longer meaningfully
-# resolved by the calibration data, so extrapolating further would imply precision
-# the model does not have.
-MAX_NORMALISED_HAZARD_INTENSITY: Final[float] = 2.0
-
 # ---------------------------------------------------------------------------
-# Building component weights
+# Material catalogue components
 #
-# CALIBRATED, informed by post-cyclone damage surveys, which consistently find that
-# envelope failure (roof covering, then roof structure) initiates the damage chain in
-# wind events, while foundation and lower-wall condition dominates flood loss. The
-# weights must sum to 1.0; `validate_constants()` enforces this at import time.
+# The groups the /materials catalogue is organised into.
 # ---------------------------------------------------------------------------
-COMPONENT_WEIGHTS: Final[dict[str, float]] = {
-    "roofing": 0.45,
-    "walls": 0.35,
-    "foundation": 0.20,
-}
-
-# ---------------------------------------------------------------------------
-# Per-component hazard sensitivity
-#
-# CALIBRATED. How much each hazard acts on each component. Rows sum to 1.0.
-# Roofing is dominated by wind uplift; foundations by flood scour and saturation;
-# walls sit between the two and carry most of the heat-transfer burden.
-# ---------------------------------------------------------------------------
-COMPONENT_HAZARD_SENSITIVITY: Final[dict[str, dict[str, float]]] = {
-    "roofing": {"wind": 0.70, "flood": 0.05, "heat": 0.25},
-    "walls": {"wind": 0.30, "flood": 0.35, "heat": 0.35},
-    "foundation": {"wind": 0.05, "flood": 0.85, "heat": 0.10},
-}
-
-HAZARDS: Final[tuple[str, ...]] = ("wind", "flood", "heat")
 BUILDING_COMPONENTS: Final[tuple[str, ...]] = ("foundation", "walls", "roofing")
 
 # ---------------------------------------------------------------------------
-# Damage and insurability thresholds
-# ---------------------------------------------------------------------------
-
-# CALIBRATED, aligned to catastrophe-modelling practice. A mean damage ratio of 0.40
-# corresponds to the point at which repair cost approaches the economic write-off
-# point for light residential construction, which is where cover is withdrawn or
-# repriced beyond reach. This is the single most consequential number in the product
-# and is called out in the README as a product threshold, not a regulatory one.
-UNINSURABLE_DAMAGE_RATIO: Final[float] = 0.40
-
-# CALIBRATED. Damage ratio is a physical quantity bounded to [0, 1]; predictions from
-# the calibration model are clamped to this range.
-MIN_DAMAGE_RATIO: Final[float] = 0.0
-MAX_DAMAGE_RATIO: Final[float] = 1.0
-
-# ---------------------------------------------------------------------------
-# Exposure scaling by floor area
+# Site area bounds
 #
-# CALIBRATED. Larger footprints present more envelope to wind and more slab to
-# flooding, but loss ratio scales far more weakly than area. A logarithmic term
-# anchored at a reference footprint captures that without letting a large building
-# dominate the score.
+# CALIBRATED. The smallest and largest outline a user may save, in sq ft: below
+# 100 is a drawing slip, above a million is a district rather than a site.
 # ---------------------------------------------------------------------------
-# Median independent-house plot area in urban Tamil Nadu, in sq ft (a 30x40 ft plot).
-REFERENCE_FLOOR_AREA_SQ_FT: Final[float] = 1200.0
-AREA_EXPOSURE_COEFFICIENT: Final[float] = 0.08
 MIN_FLOOR_AREA_SQ_FT: Final[float] = 100.0
 MAX_FLOOR_AREA_SQ_FT: Final[float] = 1_000_000.0
 
@@ -151,9 +90,6 @@ WGS84_SRID: Final[int] = 4326
 # ---------------------------------------------------------------------------
 SQ_METRES_PER_SQ_FOOT: Final[float] = 0.09290304
 SQ_FEET_PER_SQ_METRE: Final[float] = 1.0 / SQ_METRES_PER_SQ_FOOT
-
-# CODIFIED. IMD publishes wind speeds in km/h; internal calculations use m/s.
-MS_PER_KMPH: Final[float] = 1000.0 / 3600.0
 
 # CODIFIED. Exact by definition of the Celsius scale. CMIP6 temperature bands are
 # published in kelvin; the internal unit is degrees Celsius.
@@ -211,39 +147,8 @@ EARTH_ENGINE_BAND_RELATIVE_HUMIDITY: Final[str] = "hurs"  # percent
 EARTH_ENGINE_SAMPLE_RADIUS_M: Final[float] = 1_000.0
 
 # ---------------------------------------------------------------------------
-# IMD cyclone intensity classification
-#
-# CODIFIED. India Meteorological Department cyclone categories, defined by
-# 3-minute sustained surface wind in km/h. Stored as lower bounds, ascending.
-# Used to interpret IMD historical records and to label projected intensities.
-# ---------------------------------------------------------------------------
-# CALIBRATED. Tolerance applied when comparing a speed against a category bound.
-# Internal wind speeds are metres per second, so classifying one means converting
-# back to km/h — and that round trip is not exact in binary floating point (31 km/h
-# returns as 30.999999999999996). Without this tolerance a speed sitting exactly on
-# a boundary would be classified one category too low. A micro-km/h is far below any
-# meaningful measurement precision, so it cannot mask a real difference.
-CYCLONE_CATEGORY_BOUNDARY_TOLERANCE_KMPH: Final[float] = 1e-6
-
-IMD_CYCLONE_CATEGORIES_KMPH: Final[tuple[tuple[str, float], ...]] = (
-    ("Depression", 31.0),
-    ("Deep Depression", 51.0),
-    ("Cyclonic Storm", 62.0),
-    ("Severe Cyclonic Storm", 89.0),
-    ("Very Severe Cyclonic Storm", 118.0),
-    ("Extremely Severe Cyclonic Storm", 166.0),
-    ("Super Cyclonic Storm", 222.0),
-)
-
-# ---------------------------------------------------------------------------
 # External data caching
-#
-# CALIBRATED. Cache entries key on the site centroid rounded to this precision, so
-# two sites a few metres apart reuse one upstream response. Five decimal places is
-# roughly 1.1 m at the equator — finer than any climate grid cell, so rounding
-# cannot merge genuinely different climate conditions.
 # ---------------------------------------------------------------------------
-CACHE_COORDINATE_PRECISION_DP: Final[int] = 5
 
 # CALIBRATED. CMIP6 projections are republished on a multi-year cadence and IMD
 # historical records are appended seasonally, so a 30-day life keeps results stable
@@ -279,47 +184,9 @@ EXTERNAL_MAX_CONNECTIONS: Final[int] = 100
 EXTERNAL_MAX_KEEPALIVE_CONNECTIONS: Final[int] = 50
 
 # ---------------------------------------------------------------------------
-# Damage vulnerability curve
-#
-# CALIBRATED. The relationship between resistance-weighted stress and expected
-# damage ratio follows the exponential vulnerability form used throughout
-# catastrophe modelling:
-#
-#     damage = 1 - exp(-k * stress^alpha)
-#
-# The two coefficients are fixed by two anchor points we chose deliberately:
-#
-#   stress 1.0 (the full design load reaches the structure) -> damage 0.35
-#   stress 2.0 (twice the design load)                      -> damage 0.75
-#
-# Below the uninsurability threshold at exactly the design load, above it well
-# before twice the design load. These generate the synthetic training data in
-# /ml, so the damage model learns this curve — see the README's honest note about
-# what that does and does not demonstrate.
+# Quality score model training
 # ---------------------------------------------------------------------------
-DAMAGE_CURVE_SCALE_K: Final[float] = 0.4308
-DAMAGE_CURVE_SHAPE_ALPHA: Final[float] = 1.6861
-
-# CALIBRATED. Multiplicative lognormal spread applied when generating synthetic
-# damage observations, representing the scatter real post-event damage surveys show
-# around any fitted vulnerability curve.
-DAMAGE_OBSERVATION_NOISE_SIGMA: Final[float] = 0.15
-
-# CALIBRATED. Size of the synthetic training set. Large enough for the ensemble to
-# converge, small enough to retrain in seconds on a laptop.
-SYNTHETIC_TRAINING_SAMPLES: Final[int] = 6_000
 TRAIN_TEST_SPLIT_FRACTION: Final[float] = 0.2
-
-# CALIBRATED. Random forest hyperparameters. The ensemble is deliberately shallow:
-# the underlying relationship is smooth and low-dimensional, so deeper trees would
-# fit noise without improving held-out error, and the per-tree spread is what the
-# reported confidence interval is derived from.
-DAMAGE_MODEL_N_ESTIMATORS: Final[int] = 200
-DAMAGE_MODEL_MAX_DEPTH: Final[int] = 8
-DAMAGE_MODEL_MIN_SAMPLES_LEAF: Final[int] = 5
-
-RANKER_MODEL_N_ESTIMATORS: Final[int] = 150
-RANKER_MODEL_MAX_DEPTH: Final[int] = 6
 
 # CALIBRATED. Building Quality Score model. Measured against the rules score it
 # approximates over every district x situation x realistic mix: the previous
@@ -330,7 +197,9 @@ RANKER_MODEL_MAX_DEPTH: Final[int] = 6
 QUALITY_MODEL_N_ESTIMATORS: Final[int] = 600
 QUALITY_MODEL_MAX_DEPTH: Final[int] = 6
 QUALITY_MODEL_LEARNING_RATE: Final[float] = 0.08
-QUALITY_MODEL_DRAWS_PER_MIX: Final[int] = 4
+# Cover and member type are drawn per row too; at 4 draws the worst-case gap to
+# the rules score rose to 7.3 points once cover became a feature.
+QUALITY_MODEL_DRAWS_PER_MIX: Final[int] = 8
 
 # ---------------------------------------------------------------------------
 # IS 456 exposure classification
@@ -365,10 +234,6 @@ WET_REGIME_INDEX: Final[float] = 0.30
 # under which reinforcement corrosion proceeds materially faster, which is what the
 # "severe condensation" wording is protecting against.
 HIGH_HUMIDITY_PERCENT: Final[float] = 75.0
-
-# CALIBRATED. A day is "wet" above this rainfall depth. Counting transitions
-# between wet and dry days is how "alternate wetting and drying" is measured.
-WET_DAY_RAINFALL_MM: Final[float] = 2.5
 
 # CALIBRATED. This many wet/dry transitions a year means the surface is cycling
 # often enough for the Severe wording to apply.
@@ -412,6 +277,55 @@ WALLING_MISMATCH_PENALTY: Final[float] = -0.25
 # so the advice sits a little clear of it.
 RECOMMENDED_CEMENT_MARGIN_KG_M3: Final[float] = 20.0
 RECOMMENDED_WATER_CEMENT_MARGIN: Final[float] = 0.03
+
+# CODIFIED. The specification scored in recommend-only mode, standing in for what
+# a builder reaches for without advice: IS 456:2000 Table 5's reinforced-concrete
+# minimums for the Mild exposure class (M20, 300 kg/m3, w/c 0.55) — the code's
+# floor — in ordinary Portland cement with burnt clay brick walling.
+CONVENTIONAL_BASELINE_GRADE: Final[str] = "M20"
+CONVENTIONAL_BASELINE_CEMENT_KG_M3: Final[float] = 300.0
+CONVENTIONAL_BASELINE_WATER_CEMENT_RATIO: Final[float] = 0.55
+CONVENTIONAL_BASELINE_CEMENT_TYPE: Final[str] = "OPC"
+CONVENTIONAL_BASELINE_WALLING: Final[str] = "burnt_clay_brick"
+# CODIFIED. IS 456 Table 16's nominal cover for Mild exposure — the same code floor
+# as the rest of the baseline.
+CONVENTIONAL_BASELINE_COVER_MM: Final[float] = 20.0
+
+# The reinforced-concrete members the cover check knows. Durability limits in IS
+# 456 apply per element, by its exposure; the member type adds the minimum cover
+# that the element itself requires.
+MEMBER_TYPES: Final[tuple[str, ...]] = ("slab", "beam", "column", "footing")
+
+# CALIBRATED. Upper bound accepted for nominal cover. IS 456 Table 16 tops out at
+# 75 mm (Extreme); anything far beyond is a unit error (cm or inches), not a design.
+MAX_NOMINAL_COVER_MM: Final[float] = 150.0
+
+# CODIFIED. Member minimums on top of Table 16, IS 456:2000 clause 26.4.2:
+# 26.4.2.1 — footings, at least 50 mm; 26.4.2.2 — longitudinal bars in a column,
+# at least 40 mm (and not less than the bar diameter, which this tool does not
+# take as an input). Slabs and beams carry no extra minimum beyond Table 16.
+MEMBER_MINIMUM_COVER_MM: Final[dict[str, float]] = {
+    "slab": 0.0,
+    "beam": 0.0,
+    "column": 40.0,
+    "footing": 50.0,
+}
+
+# CALIBRATED. The concrete grades and cement types the score can rate: exactly the
+# space the quality model was trained over (ml/train_quality_score.py) and the
+# options the UI offers. IS 456 Table 2 defines grades beyond M45, but the model
+# has never seen one, so scoring it would be an extrapolation presented as a
+# result — a request outside these sets is rejected instead.
+SUPPORTED_CONCRETE_GRADES: Final[tuple[str, ...]] = (
+    "M15",
+    "M20",
+    "M25",
+    "M30",
+    "M35",
+    "M40",
+    "M45",
+)
+SUPPORTED_CEMENT_TYPES: Final[tuple[str, ...]] = ("OPC", "PPC", "PSC")
 
 # CALIBRATED. Score bands used for the plain-language verdict in the report.
 SCORE_BAND_THRESHOLDS: Final[tuple[tuple[str, float], ...]] = (
@@ -510,6 +424,16 @@ MAX_TILE_ZOOM_MAPBOX: Final[int] = 22
 # this, but the path parameter needs one fixed bound to validate against.
 MAX_TILE_ZOOM: Final[int] = MAX_TILE_ZOOM_MAPBOX
 
+# Statuses with which Mapbox rejects the token or the account itself — revoked or
+# URL-restricted token (401/403), account blocked or free tier exhausted (429) —
+# as opposed to one tile missing from coverage (404).
+MAPBOX_REJECTION_STATUSES: Final[frozenset[int]] = frozenset({401, 403, 429})
+
+# CALIBRATED. How long a Mapbox verdict, usable or rejected, is trusted before the
+# token is probed again: long enough not to hammer a blocked account, short enough
+# that fixing the account takes effect within minutes without a restart.
+MAPBOX_HEALTH_RECHECK_SECONDS: Final[float] = 600.0
+
 # How long a composited tile stays in the process cache. Satellite basemaps change
 # on a scale of months, so this is about avoiding a repeat round trip while panning,
 # not about freshness.
@@ -555,52 +479,31 @@ RANDOM_SEED: Final[int] = 20231204  # Cyclone Michaung's Chennai landfall, 4 Dec
 # claimed tighter than the model's own test-set error, never so wide as to be
 # useless.
 # ---------------------------------------------------------------------------
-MIN_CONFIDENCE_INTERVAL_WIDTH: Final[float] = 0.02
-MAX_CONFIDENCE_INTERVAL_WIDTH: Final[float] = 0.50
-CONFIDENCE_INTERVAL_Z_SCORE: Final[float] = 1.96  # two-sided 95% interval, normal approx.
-
-# CALIBRATED. Qualitative confidence labels attached to a score, by the width of the
-# uncertainty band on the crossing year in years.
-CONFIDENCE_LABEL_THRESHOLDS_YEARS: Final[tuple[tuple[str, float], ...]] = (
-    ("high", 3.0),
-    ("moderate", 7.0),
-    ("low", float("inf")),
-)
 
 
 def validate_constants() -> None:
     """Assert the internal consistency this module's callers rely on.
 
-    Called at application startup. A weight table that silently stopped summing to
-    1.0 would bias every score in a way no test of a single function would catch.
+    Called at application startup, so a table edited out of step with another fails
+    loudly before the first request rather than as a KeyError deep inside a score.
 
     Raises:
-        ValueError: If any weighting table is inconsistent.
+        ValueError: If the tables disagree with each other.
     """
-    component_total = sum(COMPONENT_WEIGHTS.values())
-    if abs(component_total - 1.0) > 1e-9:
-        raise ValueError(f"COMPONENT_WEIGHTS must sum to 1.0, got {component_total}")
+    if set(MEMBER_MINIMUM_COVER_MM) != set(MEMBER_TYPES):
+        raise ValueError("MEMBER_MINIMUM_COVER_MM keys must match MEMBER_TYPES")
 
-    if set(COMPONENT_WEIGHTS) != set(BUILDING_COMPONENTS):
-        raise ValueError("COMPONENT_WEIGHTS keys must match BUILDING_COMPONENTS")
+    if CONVENTIONAL_BASELINE_GRADE not in SUPPORTED_CONCRETE_GRADES:
+        raise ValueError("CONVENTIONAL_BASELINE_GRADE must be one of SUPPORTED_CONCRETE_GRADES")
 
-    if set(COMPONENT_HAZARD_SENSITIVITY) != set(BUILDING_COMPONENTS):
-        raise ValueError("COMPONENT_HAZARD_SENSITIVITY keys must match BUILDING_COMPONENTS")
+    if CONVENTIONAL_BASELINE_CEMENT_TYPE not in SUPPORTED_CEMENT_TYPES:
+        raise ValueError("CONVENTIONAL_BASELINE_CEMENT_TYPE must be one of SUPPORTED_CEMENT_TYPES")
 
-    for component, sensitivities in COMPONENT_HAZARD_SENSITIVITY.items():
-        if set(sensitivities) != set(HAZARDS):
-            raise ValueError(f"COMPONENT_HAZARD_SENSITIVITY[{component!r}] must cover all hazards")
-        total = sum(sensitivities.values())
-        if abs(total - 1.0) > 1e-9:
-            raise ValueError(
-                f"COMPONENT_HAZARD_SENSITIVITY[{component!r}] must sum to 1.0, got {total}"
-            )
+    if not 0 < CONVENTIONAL_BASELINE_COVER_MM <= MAX_NOMINAL_COVER_MM:
+        raise ValueError("CONVENTIONAL_BASELINE_COVER_MM must lie within (0, MAX_NOMINAL_COVER_MM]")
 
-    if HORIZON_START_YEAR >= HORIZON_END_YEAR:
-        raise ValueError("HORIZON_START_YEAR must be before HORIZON_END_YEAR")
-
-    if not MIN_DAMAGE_RATIO < UNINSURABLE_DAMAGE_RATIO < MAX_DAMAGE_RATIO:
-        raise ValueError("UNINSURABLE_DAMAGE_RATIO must lie strictly within the damage range")
+    if SARVAM_CHUNK_TARGET_CHARACTERS >= SARVAM_MAX_TEXT_CHARACTERS:
+        raise ValueError("SARVAM_CHUNK_TARGET_CHARACTERS must stay below the API's hard limit")
 
 
 # ---------------------------------------------------------------------------

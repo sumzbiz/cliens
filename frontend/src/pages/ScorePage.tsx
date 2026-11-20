@@ -13,13 +13,15 @@ import { PageShell } from '@/components/Shell';
 import { VoiceExplainer } from '@/components/VoiceExplainer';
 import { scoreNarration } from '@/lib/narration.ta';
 import { useVoice } from '@/state/voice-context';
+import { RecommendedChanges } from '@/components/RecommendedChanges';
 import { ScoreComparison } from '@/components/ScoreComparison';
 import { ServiceLifeComparison } from '@/components/ServiceLifeComparison';
 import { Button, ErrorNotice, Panel, Popup, Spinner } from '@/components/ui';
 import { useAction } from '@/hooks/useAction';
 import { apiClient } from '@/lib/api-client';
-import { formatParameter, formatPercent } from '@/lib/format';
+import { formatParameter, formatPercent, isSpecComparison } from '@/lib/format';
 import { boundsOf } from '@/lib/geo';
+import { specChanges } from '@/lib/spec-changes';
 import { useSession, type SiteSpecification } from '@/state/session-context';
 import type { MaterialSelectionInput, ScoreResponse } from '@/types/api';
 
@@ -34,6 +36,7 @@ function materialsPayload(spec: SiteSpecification): MaterialSelectionInput | nul
     ? {
         concrete: spec.concrete,
         walling_material_id: spec.wallingMaterialId,
+        nominal_cover_mm: spec.coverMm,
         element_situation: spec.situation,
       }
     : null;
@@ -67,8 +70,8 @@ export default function ScorePage() {
   const report = useAction(async (): Promise<Blob> => {
     const outlineBounds = area === null ? null : boundsOf(area);
     return outlineBounds !== null
-      ? apiClient.downloadAreaReport(outlineBounds, materialsPayload(spec), spec.situation)
-      : apiClient.downloadReport(spec.district, materialsPayload(spec), spec.situation);
+      ? apiClient.downloadAreaReport(outlineBounds, materialsPayload(spec), spec.situation, spec.member)
+      : apiClient.downloadReport(spec.district, materialsPayload(spec), spec.situation, spec.member);
   });
 
   useEffect(() => {
@@ -86,8 +89,8 @@ export default function ScorePage() {
     const outlineBounds = area === null ? null : boundsOf(area);
     const pending =
       outlineBounds !== null
-        ? apiClient.scoreArea(outlineBounds, materialsPayload(spec), spec.situation)
-        : apiClient.score(spec.district, materialsPayload(spec), spec.situation);
+        ? apiClient.scoreArea(outlineBounds, materialsPayload(spec), spec.situation, spec.member)
+        : apiClient.score(spec.district, materialsPayload(spec), spec.situation, spec.member);
 
     pending
       .then((response) => {
@@ -104,6 +107,8 @@ export default function ScorePage() {
       cancelled = true;
     };
   }, [spec, area]);
+
+  const changes = result === null ? [] : specChanges(result.proposed, result.recommended);
 
   const handleDownload = useCallback(async () => {
     const blob = await report.run();
@@ -168,6 +173,7 @@ export default function ScorePage() {
               proposed: result.proposed.score,
               recommended: result.recommended.score,
               improvement: result.improvement,
+              unchanged: changes.length === 0,
               compliant: result.proposed.compliant,
             })}
             enabled={voice.enabled}
@@ -178,7 +184,23 @@ export default function ScorePage() {
             proposed={result.proposed}
             recommended={result.recommended}
             improvement={result.improvement}
+            changeCount={changes.length}
             evaluatedOwnMaterials={spec.evaluateOwnMaterials}
+          />
+
+          <RecommendedChanges
+            changes={changes}
+            evaluatedOwnMaterials={spec.evaluateOwnMaterials}
+            onAdopt={() => {
+              // Writing the recommendation into the session re-scores it, so the
+              // page then shows it as the user's own specification.
+              update({
+                concrete: { ...result.recommended.concrete },
+                coverMm: result.recommended.nominal_cover_mm,
+                wallingMaterialId: result.recommended.walling_material_id,
+                evaluateOwnMaterials: true,
+              });
+            }}
           />
 
           <ServiceLifeComparison
@@ -197,7 +219,7 @@ export default function ScorePage() {
                 onClick={() => {
                   setClimateOpen(true);
                 }}
-                className="text-sm font-medium text-atmos underline underline-offset-4"
+                className="inline-flex min-h-6 items-center text-sm font-medium text-atmos underline underline-offset-4"
               >
                 See the measurements
               </button>
@@ -216,13 +238,16 @@ export default function ScorePage() {
 
           <Panel className="p-6">
             <h2 className="text-base font-semibold text-ink-1">What we checked</h2>
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[28rem] text-left text-sm">
+            {/* No minimum width: at phone width it pushed the Result column off
+                screen inside a sideways scroll. Below `sm` the two number columns
+                fold into the requirement cell instead, so the verdict always shows. */}
+            <div className="mt-4">
+              <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.12em] text-ink-3">
                     <th className="pb-2.5 font-medium">Requirement</th>
-                    <th className="pb-2.5 text-right font-medium">Code needs</th>
-                    <th className="pb-2.5 text-right font-medium">You have</th>
+                    <th className="hidden pb-2.5 text-right font-medium sm:table-cell">Code needs</th>
+                    <th className="hidden pb-2.5 text-right font-medium sm:table-cell">You have</th>
                     <th className="pb-2.5 text-right font-medium">Result</th>
                   </tr>
                 </thead>
@@ -237,27 +262,32 @@ export default function ScorePage() {
                         reduced === true ? { duration: 0 } : { delay: 0.05 * index, duration: 0.3 }
                       }
                     >
-                      <td className="py-2.5 text-ink-1">
+                      <td className="py-2.5 pr-3 text-ink-1">
                         {formatParameter(finding.parameter)}
-                        {!isSpecComparison(finding.parameter) && (
+                        {isSpecComparison(finding.parameter) ? (
+                          <span className="tabular mt-0.5 block text-xs text-ink-3 sm:hidden">
+                            Needs {formatFindingValue(finding.parameter, finding.required)} · you have{' '}
+                            {formatFindingValue(finding.parameter, finding.provided)}
+                          </span>
+                        ) : (
                           // This row is not a spec-versus-limit comparison, so the
                           // numeric columns are blank and the reason goes here
                           // instead — see `isSpecComparison`.
                           <span className="mt-0.5 block text-xs text-ink-3">{finding.message}</span>
                         )}
                       </td>
-                      <td className="tabular py-2.5 text-right text-ink-2">
+                      <td className="tabular hidden py-2.5 text-right text-ink-2 sm:table-cell">
                         {isSpecComparison(finding.parameter)
-                          ? formatFindingValue(finding.required)
+                          ? formatFindingValue(finding.parameter, finding.required)
                           : '—'}
                       </td>
-                      <td className="tabular py-2.5 text-right text-ink-2">
+                      <td className="tabular hidden py-2.5 text-right text-ink-2 sm:table-cell">
                         {isSpecComparison(finding.parameter)
-                          ? formatFindingValue(finding.provided)
+                          ? formatFindingValue(finding.parameter, finding.provided)
                           : '—'}
                       </td>
                       <td
-                        className={`py-2.5 text-right font-semibold ${
+                        className={`py-2.5 align-top text-right font-semibold ${
                           finding.compliant ? 'text-band-good' : 'text-band-poor'
                         }`}
                       >
@@ -327,9 +357,11 @@ export default function ScorePage() {
           </Panel>
 
           <p className="text-xs leading-relaxed text-ink-3">
-            Score computed by {result.model_version}, from IS 456 compliance margins. It reflects
-            code compliance against measured climate — it is not a prediction of whether a building
-            will fail.
+            Score computed by the IS 456 rules engine from each check&rsquo;s compliance margin; the
+            machine-learning model ({result.model_version}) estimates{' '}
+            {result.proposed.model_score.toFixed(0)} for your specification as a cross-check. It
+            reflects code compliance against measured climate — it is not a prediction of whether a
+            building will fail.
           </p>
 
           <Popup
@@ -392,29 +424,25 @@ export default function ScorePage() {
 }
 
 /**
- * Whether a finding's `required`/`provided` really are "the limit" and "what you
- * specified".
- *
- * For grade, cement content and water/cement ratio they are. The walling check is
- * different: it reports the *climate's* humidity against the threshold at which
- * corrosion accelerates, and decides compliance from whether the chosen material
- * suits that climate. Rendering those two numbers under "Code needs" and "You
- * have" said the user supplied 81.4 where 75 was required and still failed, which
- * is not what happened. Rows like that show their message instead.
- */
-function isSpecComparison(parameter: string): boolean {
-  return parameter !== 'walling_climate_suitability';
-}
-
-/**
- * Trims a finding value to a sensible number of decimals.
+ * Formats a finding value in the unit a builder reads it in.
  *
  * These arrive as raw floats — a humidity of 81.41115885900099 was being printed
  * in full. Grades and cement contents are whole numbers; a water/cement ratio
- * needs two places.
+ * needs two places. A grade arrives as its strength in MPa, so it is shown as the
+ * grade name: a bare "35" next to "Concrete grade" reads as a quantity, not M35.
  */
-function formatFindingValue(value: number): string {
-  return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
+function formatFindingValue(parameter: string, value: number): string {
+  const number = Number.isInteger(value) ? value.toFixed(0) : value.toFixed(2);
+  if (parameter === 'concrete_grade_mpa') {
+    return `M${number}`;
+  }
+  if (parameter === 'cement_content_kg_m3') {
+    return `${number} kg/m³`;
+  }
+  if (parameter === 'nominal_cover_mm') {
+    return `${number} mm`;
+  }
+  return number;
 }
 
 function Measurement({ label, value }: { label: string; value: string }) {

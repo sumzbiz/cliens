@@ -4,16 +4,14 @@ Everything here is a pure function of its arguments: no I/O, no clocks, no rando
 no globals beyond the constants module. That is what makes ``/score`` reproducible,
 and it means each function is directly unit-testable at its boundaries.
 
-Anything in this module that is used by both the score engine and the re-score path
-exists exactly once, per the DRY rules in CLAUDE.md.
+Anything in this module that more than one caller relies on — the score engine,
+the service-life estimate, the climate pipeline — exists exactly once, per the DRY
+rules in CLAUDE.md.
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping
-from dataclasses import dataclass
-from typing import Final
 
 from app.core import constants
 
@@ -25,10 +23,15 @@ def clamp(value: float, minimum: float, maximum: float) -> float:
     """Constrain ``value`` to the inclusive range ``[minimum, maximum]``.
 
     Raises:
-        ValueError: If the range is inverted, which would silently return nonsense.
+        ValueError: If the range is inverted, or ``value`` is NaN. Either would
+            silently return nonsense: ``min``/``max`` never select a NaN, so it
+            came back as ``maximum`` — a NaN prediction would have been reported
+            as a perfect score.
     """
     if minimum > maximum:
         raise ValueError(f"invalid clamp range: minimum {minimum} exceeds maximum {maximum}")
+    if math.isnan(value):
+        raise ValueError("cannot clamp NaN")
     return max(minimum, min(maximum, value))
 
 
@@ -47,24 +50,6 @@ def sq_metres_to_sq_feet(area_sq_m: float) -> float:
 def sq_feet_to_sq_metres(area_sq_ft: float) -> float:
     """Convert square feet to square metres."""
     return area_sq_ft * constants.SQ_METRES_PER_SQ_FOOT
-
-
-def kmph_to_ms(speed_kmph: float) -> float:
-    """Convert kilometres per hour to metres per second.
-
-    IMD publishes cyclone wind speeds in km/h. Every internal wind calculation is in
-    m/s, so IMD values are converted at the client boundary and never afterwards.
-    """
-    return speed_kmph * constants.MS_PER_KMPH
-
-
-def ms_to_kmph(speed_ms: float) -> float:
-    """Convert metres per second to kilometres per hour.
-
-    Used when presenting a wind speed alongside an IMD cyclone category, which is
-    defined in km/h.
-    """
-    return speed_ms / constants.MS_PER_KMPH
 
 
 def kelvin_to_celsius(temperature_k: float) -> float:
@@ -129,349 +114,6 @@ def wind_speed_from_components(eastward_ms: float, northward_ms: float) -> float
     return math.hypot(eastward_ms, northward_ms)
 
 
-def wet_bulb_temperature_c(temperature_c: float, relative_humidity_percent: float) -> float:
-    """Estimate wet-bulb temperature from dry-bulb temperature and relative humidity.
-
-    Uses the empirical fit from Stull, R. (2011), "Wet-Bulb Temperature from
-    Relative Humidity and Air Temperature", Journal of Applied Meteorology and
-    Climatology 50(11):2267-2269. It is accurate to about ±1 °C over the range
-    that matters here, and needs only the two variables CMIP6 publishes directly,
-    avoiding an extra pressure assumption.
-
-    Args:
-        temperature_c: Dry-bulb temperature in degrees Celsius.
-        relative_humidity_percent: Relative humidity as a percentage, 0-100.
-
-    Returns:
-        Wet-bulb temperature in degrees Celsius.
-
-    Raises:
-        ValueError: If relative humidity is outside 0-100.
-    """
-    if not 0.0 <= relative_humidity_percent <= 100.0:
-        raise ValueError(
-            f"relative_humidity_percent must be within [0, 100], "
-            f"got {relative_humidity_percent}"
-        )
-
-    humidity = relative_humidity_percent
-    # math.pow rather than `**`: the ** operator is typed as returning Any for
-    # float bases (it can yield a complex result for a negative base), which would
-    # silently widen this function's return type.
-    return (
-        temperature_c * math.atan(0.151977 * math.sqrt(humidity + 8.313659))
-        + math.atan(temperature_c + humidity)
-        - math.atan(humidity - 1.676331)
-        + 0.00391838 * math.pow(humidity, 1.5) * math.atan(0.023101 * humidity)
-        - 4.686035
-    )
-
-
-def classify_cyclone_category(wind_speed_ms: float) -> str:
-    """Return the IMD cyclone category for a sustained wind speed.
-
-    Args:
-        wind_speed_ms: Sustained surface wind speed in metres per second.
-
-    Bounds are treated as inclusive within a tolerance, because converting the
-    internal m/s value back to km/h is not exact in binary floating point.
-
-    Returns:
-        The IMD category name, or ``"Below Depression"`` for speeds under the
-        weakest classified band.
-    """
-    speed_kmph = ms_to_kmph(wind_speed_ms)
-    category = "Below Depression"
-    for name, lower_bound_kmph in constants.IMD_CYCLONE_CATEGORIES_KMPH:
-        if speed_kmph >= lower_bound_kmph - constants.CYCLONE_CATEGORY_BOUNDARY_TOLERANCE_KMPH:
-            category = name
-        else:
-            break
-    return category
-
-
-# ---------------------------------------------------------------------------
-# Hazard normalisation
-# ---------------------------------------------------------------------------
-def normalise_hazard_intensity(projected_value: float, reference_value: float) -> float:
-    """Express a projected hazard value as a dimensionless intensity.
-
-    An intensity of 1.0 means the projection sits exactly at the reference severity
-    (the design wind speed, the "extremely heavy rainfall" threshold, and so on).
-    The result is clamped to ``MAX_NORMALISED_HAZARD_INTENSITY`` because the damage
-    relationship is not resolved by the calibration data beyond that point.
-
-    Args:
-        projected_value: Projected hazard value, in the hazard's own unit.
-        reference_value: The reference severity for that hazard, same unit.
-
-    Raises:
-        ValueError: If ``reference_value`` is not positive.
-    """
-    if reference_value <= 0:
-        raise ValueError(f"reference_value must be positive, got {reference_value}")
-    intensity = projected_value / reference_value
-    return clamp(intensity, 0.0, constants.MAX_NORMALISED_HAZARD_INTENSITY)
-
-
-# ---------------------------------------------------------------------------
-# Resistance-weighted stress — the core shared calculation
-# ---------------------------------------------------------------------------
-@dataclass(frozen=True, slots=True)
-class StressContribution:
-    """One component's contribution to total structural stress.
-
-    Attributes:
-        component: Building component name (foundation, walls, roofing).
-        hazard_contributions: Stress contributed by each hazard, already weighted
-            by the component's weight and its sensitivity to that hazard.
-        total: Sum of ``hazard_contributions``.
-    """
-
-    component: str
-    hazard_contributions: Mapping[str, float]
-    total: float
-
-
-@dataclass(frozen=True, slots=True)
-class StressBreakdown:
-    """A fully auditable decomposition of structural stress.
-
-    The brief requires every score to be traceable to the inputs that produced it,
-    so the engine carries this structure rather than a bare number.
-
-    Attributes:
-        total: Overall dimensionless stress across all components and hazards.
-        by_component: Per-component decomposition, in ``BUILDING_COMPONENTS`` order.
-        by_hazard: Total stress attributable to each hazard across all components.
-    """
-
-    total: float
-    by_component: tuple[StressContribution, ...]
-    by_hazard: Mapping[str, float]
-
-
-def resistance_weighted_stress(
-    hazard_intensities: Mapping[str, float],
-    component_resistances: Mapping[str, Mapping[str, float]],
-) -> StressBreakdown:
-    """Combine hazard intensities with material resistance into structural stress.
-
-    For each component ``c`` and hazard ``h``::
-
-        contribution(c, h) = weight(c) x sensitivity(c, h) x intensity(h) x (1 - resistance(c, h))
-
-    The ``(1 - resistance)`` term is the share of the load the material fails to
-    resist. Total stress is the sum over every component and hazard, so a stress of
-    0 means every hazard is fully resisted and higher values mean more load reaches
-    the structure.
-
-    This function is the only place this relationship is expressed. The baseline
-    score and the re-scored "prove" path both call it, which is what guarantees the
-    two are comparable.
-
-    Args:
-        hazard_intensities: Dimensionless intensity per hazard, keyed by the names
-            in ``constants.HAZARDS``. Typically from ``normalise_hazard_intensity``.
-        component_resistances: Resistance in ``[0, 1]`` per component per hazard,
-            keyed by ``constants.BUILDING_COMPONENTS`` then ``constants.HAZARDS``.
-
-    Returns:
-        A full breakdown; ``StressBreakdown.total`` is the scalar stress.
-
-    Raises:
-        ValueError: If a hazard or component is missing, or a resistance falls
-            outside ``[0, 1]``. Missing data is never treated as zero — that would
-            quietly understate risk.
-    """
-    missing_hazards = set(constants.HAZARDS) - set(hazard_intensities)
-    if missing_hazards:
-        raise ValueError(f"missing hazard intensities: {sorted(missing_hazards)}")
-
-    missing_components = set(constants.BUILDING_COMPONENTS) - set(component_resistances)
-    if missing_components:
-        raise ValueError(f"missing component resistances: {sorted(missing_components)}")
-
-    contributions: list[StressContribution] = []
-    hazard_totals: dict[str, float] = dict.fromkeys(constants.HAZARDS, 0.0)
-
-    for component in constants.BUILDING_COMPONENTS:
-        component_weight = constants.COMPONENT_WEIGHTS[component]
-        sensitivities = constants.COMPONENT_HAZARD_SENSITIVITY[component]
-        resistances = component_resistances[component]
-
-        missing_resistances = set(constants.HAZARDS) - set(resistances)
-        if missing_resistances:
-            raise ValueError(
-                f"component {component!r} is missing resistances for "
-                f"{sorted(missing_resistances)}"
-            )
-
-        per_hazard: dict[str, float] = {}
-        for hazard in constants.HAZARDS:
-            resistance = resistances[hazard]
-            if not 0.0 <= resistance <= 1.0:
-                raise ValueError(
-                    f"resistance for {component!r}/{hazard!r} must be in [0, 1], got {resistance}"
-                )
-            unresisted_share = 1.0 - resistance
-            contribution = (
-                component_weight
-                * sensitivities[hazard]
-                * hazard_intensities[hazard]
-                * unresisted_share
-            )
-            per_hazard[hazard] = contribution
-            hazard_totals[hazard] += contribution
-
-        contributions.append(
-            StressContribution(
-                component=component,
-                hazard_contributions=per_hazard,
-                total=sum(per_hazard.values()),
-            )
-        )
-
-    return StressBreakdown(
-        total=sum(c.total for c in contributions),
-        by_component=tuple(contributions),
-        by_hazard=hazard_totals,
-    )
-
-
-# ---------------------------------------------------------------------------
-# Exposure scaling
-# ---------------------------------------------------------------------------
-def area_exposure_factor(area_sq_ft: float) -> float:
-    """Scale stress by floor area, relative to a reference footprint.
-
-    A larger building presents more envelope to wind and more slab to flooding, but
-    damage ratio scales far more weakly than area does. A logarithmic term captures
-    that: a building at the reference area scores 1.0, one at ten times the
-    reference scores only modestly higher.
-
-    Args:
-        area_sq_ft: Floor area in square feet.
-
-    Returns:
-        A multiplier applied to total stress; 1.0 at the reference area.
-
-    Raises:
-        ValueError: If the area is outside the supported bounds.
-    """
-    if not constants.MIN_FLOOR_AREA_SQ_FT <= area_sq_ft <= constants.MAX_FLOOR_AREA_SQ_FT:
-        raise ValueError(
-            f"area_sq_ft must be within "
-            f"[{constants.MIN_FLOOR_AREA_SQ_FT}, {constants.MAX_FLOOR_AREA_SQ_FT}], "
-            f"got {area_sq_ft}"
-        )
-    ratio = area_sq_ft / constants.REFERENCE_FLOOR_AREA_SQ_FT
-    return 1.0 + constants.AREA_EXPOSURE_COEFFICIENT * math.log10(ratio)
-
-
-# ---------------------------------------------------------------------------
-# Threshold crossing
-# ---------------------------------------------------------------------------
-def is_uninsurable(damage_ratio: float) -> bool:
-    """Whether a damage ratio is at or above the uninsurability threshold."""
-    return damage_ratio >= constants.UNINSURABLE_DAMAGE_RATIO
-
-
-def first_crossing_year(damage_ratio_by_year: Mapping[int, float]) -> int | None:
-    """Find the earliest year whose damage ratio reaches the uninsurable threshold.
-
-    This is the Climate Lien Score itself. Years are evaluated in ascending order, so
-    a projection that dips back below the threshold later does not move the score —
-    once a site is uninsurable it does not become financeable again.
-
-    Args:
-        damage_ratio_by_year: Damage ratio for each year in the horizon.
-
-    Returns:
-        The first crossing year, or ``None`` if the threshold is never reached
-        within the horizon. ``None`` means "survives the horizon", which callers
-        must present distinctly from a late crossing year.
-
-    Raises:
-        ValueError: If the mapping is empty, or any year lies outside the horizon.
-    """
-    if not damage_ratio_by_year:
-        raise ValueError("damage_ratio_by_year must not be empty")
-
-    out_of_range = [
-        year
-        for year in damage_ratio_by_year
-        if not constants.HORIZON_START_YEAR <= year <= constants.HORIZON_END_YEAR
-    ]
-    if out_of_range:
-        raise ValueError(
-            f"years outside the horizon "
-            f"[{constants.HORIZON_START_YEAR}, {constants.HORIZON_END_YEAR}]: "
-            f"{sorted(out_of_range)}"
-        )
-
-    for year in sorted(damage_ratio_by_year):
-        if is_uninsurable(damage_ratio_by_year[year]):
-            return year
-    return None
-
-
-def clamp_damage_ratio(value: float) -> float:
-    """Constrain a predicted damage ratio to its physically meaningful range.
-
-    A regression model can extrapolate outside ``[0, 1]``; a damage ratio outside
-    that range is meaningless, so predictions are clamped before use.
-    """
-    return clamp(value, constants.MIN_DAMAGE_RATIO, constants.MAX_DAMAGE_RATIO)
-
-
-# ---------------------------------------------------------------------------
-# Uncertainty reporting
-# ---------------------------------------------------------------------------
-def confidence_label(interval_width_years: float) -> str:
-    """Map an uncertainty band width on the crossing year to a qualitative label.
-
-    Args:
-        interval_width_years: Width of the confidence interval, in years.
-
-    Raises:
-        ValueError: If the width is negative.
-    """
-    if interval_width_years < 0:
-        raise ValueError(f"interval_width_years must be non-negative, got {interval_width_years}")
-    for label, upper_bound in constants.CONFIDENCE_LABEL_THRESHOLDS_YEARS:
-        if interval_width_years <= upper_bound:
-            return label
-    # Unreachable: the final threshold is infinity. Kept so the function is total.
-    return constants.CONFIDENCE_LABEL_THRESHOLDS_YEARS[-1][0]
-
-
-def confidence_interval(point_estimate: float, standard_error: float) -> tuple[float, float]:
-    """Build a two-sided 95% interval around a prediction.
-
-    The half-width is clamped so the reported band is never narrower than the model
-    can justify nor so wide as to be useless.
-
-    Args:
-        point_estimate: The model's prediction.
-        standard_error: Standard error of that prediction, from ensemble spread.
-
-    Returns:
-        ``(lower, upper)`` bounds.
-
-    Raises:
-        ValueError: If ``standard_error`` is negative.
-    """
-    if standard_error < 0:
-        raise ValueError(f"standard_error must be non-negative, got {standard_error}")
-    half_width = clamp(
-        constants.CONFIDENCE_INTERVAL_Z_SCORE * standard_error,
-        constants.MIN_CONFIDENCE_INTERVAL_WIDTH / 2.0,
-        constants.MAX_CONFIDENCE_INTERVAL_WIDTH / 2.0,
-    )
-    return point_estimate - half_width, point_estimate + half_width
-
-
 # ---------------------------------------------------------------------------
 # Estimated service life
 # ---------------------------------------------------------------------------
@@ -479,18 +121,25 @@ def estimated_service_life_years(
     *,
     required_water_cement_ratio: float,
     provided_water_cement_ratio: float,
+    required_cover_mm: float,
+    provided_cover_mm: float,
     worst_other_shortfall_ratio: float,
 ) -> float:
     """Years of service life this specification implies, from the code's baseline.
 
-    Anchored at ``DESIGN_SERVICE_LIFE_YEARS``: a mix sitting exactly on its
-    exposure class's limits returns exactly that, because those limits are what
-    the 50-year target is written to deliver.
+    Anchored at ``DESIGN_SERVICE_LIFE_YEARS``: a specification sitting exactly on
+    its exposure class's limits returns exactly that, because those limits are
+    what the 50-year target is written to deliver.
 
-    Two adjustments move it from there:
+    Three adjustments move it from there:
 
-    * The water/cement term. Corrosion onset is diffusion-controlled and the
-      diffusion coefficient rises exponentially with w/c, so life scales as
+    * The cover term. Corrosion starts once chlorides or the carbonation front
+      cross the cover. Both advance with the square root of time — Fick's second
+      law for chloride ingress, ``x = K * sqrt(t)`` for carbonation — so the time
+      to cross a cover ``c`` grows with ``c**2``, and life scales as
+      ``(provided / required) ** 2``. Halving the cover quarters the time.
+    * The water/cement term. That ingress is diffusion-controlled and the
+      diffusion coefficient rises exponentially with w/c, so life also scales as
       ``exp(k * (required - provided))``. Beating the limit buys time; exceeding
       it loses time, and steeply.
     * The shortfall term. Missing the minimum grade or cement content means the
@@ -502,13 +151,24 @@ def estimated_service_life_years(
     Args:
         required_water_cement_ratio: The exposure class maximum.
         provided_water_cement_ratio: What the specification proposes.
+        required_cover_mm: The nominal cover the member needs.
+        provided_cover_mm: The nominal cover the specification proposes.
         worst_other_shortfall_ratio: How far the worst of the *other* durability
-            parameters falls below its minimum, as a non-negative fraction of
-            that minimum. Zero when everything else complies.
+            parameters (grade, cement content, walling) falls below its minimum,
+            as a non-negative fraction of that minimum. Zero when they comply.
 
     Returns:
         Years, clamped to the bounds in ``constants``.
+
+    Raises:
+        ValueError: If either cover is not positive.
     """
+    if required_cover_mm <= 0 or provided_cover_mm <= 0:
+        raise ValueError(
+            f"covers must be positive, got required={required_cover_mm}, "
+            f"provided={provided_cover_mm}"
+        )
+    cover_factor = math.pow(provided_cover_mm / required_cover_mm, 2)
     diffusion_factor = math.exp(
         constants.INGRESS_WATER_CEMENT_SENSITIVITY
         * (required_water_cement_ratio - provided_water_cement_ratio)
@@ -522,7 +182,7 @@ def estimated_service_life_years(
         1.0,
     )
 
-    years = constants.DESIGN_SERVICE_LIFE_YEARS * diffusion_factor * shortfall_factor
+    years = constants.DESIGN_SERVICE_LIFE_YEARS * cover_factor * diffusion_factor * shortfall_factor
     return clamp(
         years,
         constants.MIN_ESTIMATED_SERVICE_LIFE_YEARS,
@@ -585,19 +245,3 @@ def haversine_km(
     # clamp guards against a floating-point result marginally above 1.0 for
     # coincident points, which would make asin raise.
     return 2.0 * constants.EARTH_MEAN_RADIUS_KM * math.asin(math.sqrt(clamp(inner, 0.0, 1.0)))
-
-
-# ---------------------------------------------------------------------------
-# Cache keys
-# ---------------------------------------------------------------------------
-_COORDINATE_PRECISION: Final[int] = constants.CACHE_COORDINATE_PRECISION_DP
-
-
-def round_coordinate(value: float) -> float:
-    """Round a coordinate to the cache's spatial precision.
-
-    Two sites within about a metre of each other resolve to the same cache key and
-    reuse one upstream response. The precision is far finer than any climate grid
-    cell, so this cannot merge genuinely different climate conditions.
-    """
-    return round(value, _COORDINATE_PRECISION)

@@ -50,8 +50,8 @@ invite services to import them and query directly.
 ## DRY
 
 - A calculation used in more than one place lives in exactly **one** function in
-  `backend/app/core/` and is imported. Area conversion, resistance-weighted scoring
-  and threshold comparison are already there — use them, do not re-derive them.
+  `backend/app/core/` and is imported. Area conversion, the service-life estimate and
+  clamping are already there — use them, do not re-derive them.
 - No copy-pasted fetch boilerplate in React components. Every request goes through
   `frontend/src/lib/api-client.ts`.
 - Repeated Tailwind class strings become a component in `components/ui/`.
@@ -104,8 +104,9 @@ clients. Log at each service boundary: the call, the external calls made, the re
 
 - `backend/app/tests/` mirrors `backend/app/` 1:1.
 - Tests never make real network calls. Every external client is mocked.
-- Score engine math is tested at its edges: minimum risk, maximum risk, missing data,
-  and both boundary years (2025, 2055).
+- Score engine math is tested at its edges: a specification exactly at the code's
+  limits (the 50-year anchor), shortfalls and surpluses on every checked parameter,
+  missing data, and the service-life bounds.
 - `npm run test:all` from the repo root runs everything.
 
 ## Units

@@ -13,8 +13,14 @@
 # reads these: the app reads the small district profile bundle that ships inside
 # backend/app/repositories/data/.
 *.grib
+*.grib2
 *.grib.*.idx
+*.nc
+*.nc4
 ml/data/
+
+# Documentation and its diagrams (several MB) are never copied into an image.
+docs/
 
 # Build outputs and caches
 node_modules/

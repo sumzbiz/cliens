@@ -229,11 +229,13 @@ export function RequirementsSummary({
   minGrade,
   minCementKgM3,
   maxWaterCementRatio,
+  minCoverMm,
 }: {
   exposureLabel: string;
   minGrade: string;
   minCementKgM3: number;
   maxWaterCementRatio: number;
+  minCoverMm: number;
 }) {
   return (
     <div>
@@ -243,10 +245,11 @@ export function RequirementsSummary({
       <p className="mt-1 text-lg font-semibold text-ink-1">
         <span className="text-atmos">{exposureLabel}</span> exposure
       </p>
-      <dl className="tabular mt-3 grid grid-cols-3 gap-3 text-center">
+      <dl className="tabular mt-3 grid grid-cols-2 gap-3 text-center sm:grid-cols-4">
         <RequirementCell label="Grade" value={`≥ ${minGrade}`} />
         <RequirementCell label="Cement" value={`≥ ${minCementKgM3.toFixed(0)}`} unit="kg/m³" />
         <RequirementCell label="W/C ratio" value={`≤ ${maxWaterCementRatio.toFixed(2)}`} />
+        <RequirementCell label="Cover" value={`≥ ${minCoverMm.toFixed(0)}`} unit="mm" />
       </dl>
     </div>
   );

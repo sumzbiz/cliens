@@ -32,6 +32,7 @@ export type ConcreteMixInput = Schemas['ConcreteMixInput'];
 // are derived from the fields that use them and stay in sync automatically.
 export type ElementSituation = MaterialSelectionInput['element_situation'];
 export type ScoreBand = ScoredSelection['band'];
+export type MemberType = ScoredSelection['member'];
 
 export type MaterialCatalogue = Schemas['MaterialCatalogueResponse'];
 export type MaterialResponse = Schemas['MaterialResponse'];
@@ -46,6 +47,17 @@ export const ELEMENT_SITUATIONS: { value: ElementSituation; label: string; hint:
   { value: 'tidal', label: 'Tidal', hint: 'In the tidal zone' },
 ];
 
+/**
+ * Which reinforced-concrete member is being specified. It sets the cover the code
+ * requires: IS 456 clause 26.4.2 raises Table 16's figure for columns and footings.
+ */
+export const MEMBER_TYPES: { value: MemberType; label: string; hint: string }[] = [
+  { value: 'slab', label: 'Slab', hint: 'A floor or roof slab' },
+  { value: 'beam', label: 'Beam', hint: 'Spans between columns or walls' },
+  { value: 'column', label: 'Column', hint: 'Vertical, carries the floors above' },
+  { value: 'footing', label: 'Footing', hint: 'The foundation, in the ground' },
+];
+
 /** Concrete grades offered in the form, spanning the IS 456 exposure minimums. */
 export const CONCRETE_GRADES = ['M15', 'M20', 'M25', 'M30', 'M35', 'M40', 'M45'] as const;
 
@@ -54,6 +66,25 @@ export const CEMENT_TYPES = [
   { value: 'OPC', label: 'OPC — Ordinary Portland' },
   { value: 'PPC', label: 'PPC — Portland Pozzolana' },
   { value: 'PSC', label: 'PSC — Portland Slag' },
+] as const;
+
+/**
+ * Admixtures the rules give credit for, by the exact names the backend matches on
+ * (`ADMIXTURE_FEATURES` in app/ml/quality_score.py). The form had no way to choose
+ * them, so a recommendation that added one always looked better than any
+ * specification a user could enter.
+ */
+export const ADMIXTURES = [
+  {
+    value: 'corrosion inhibitor',
+    label: 'Corrosion inhibitor',
+    hint: 'Protects the steel from chlorides. Advised near the coast.',
+  },
+  {
+    value: 'waterproofing admixture',
+    label: 'Waterproofing admixture',
+    hint: 'Lowers water absorption. Advised where it rains often.',
+  },
 ] as const;
 
 /** Walling materials in the reference tables. */

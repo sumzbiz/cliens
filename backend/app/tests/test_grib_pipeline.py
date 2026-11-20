@@ -21,10 +21,8 @@ from types import ModuleType
 import pandas as pd
 import pytest
 
-from app.repositories.district_profiles import (
-    ClimateProfileUnavailableError,
-    load_climate_profiles,
-)
+from app.core.exceptions import LocationNotCoveredError
+from app.repositories.district_profiles import load_climate_profiles
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 ML_DIR = REPO_ROOT / "ml"
@@ -205,7 +203,7 @@ class TestBundledProfiles:
         assert load_climate_profiles().get("coimbatore").district == "Coimbatore"
 
     def test_unknown_district_names_the_alternatives(self) -> None:
-        with pytest.raises(ClimateProfileUnavailableError) as caught:
+        with pytest.raises(LocationNotCoveredError) as caught:
             load_climate_profiles().get("Atlantis")
 
         assert "Coimbatore" in caught.value.details["available_districts"]
