@@ -99,3 +99,10 @@ class TestValidateConstants:
 
         with pytest.raises(ValueError, match="SARVAM_CHUNK_TARGET_CHARACTERS"):
             constants.validate_constants()
+
+
+class TestEarthEngineSampling:
+    """Scored nodes sit on cell corners; the sample disc must reach into the cells."""
+
+    def test_sample_disc_spans_half_a_dataset_cell(self) -> None:
+        assert 2 * constants.EARTH_ENGINE_SAMPLE_RADIUS_M >= constants.EARTH_ENGINE_SCALE_M

@@ -151,6 +151,8 @@ def assessment_facts(
         "exposure_class": comparison.exposure.label,
         "element_situation": situation,
         "member": member,
+        # Stated as a value so "out of 100" in the text is traceable to a fact.
+        "score_scale": {"lowest": constants.SCORE_SCALE[0], "highest": constants.SCORE_SCALE[1]},
         "your_score_out_of_100": round(proposed.score, 1),
         "recommended_score_out_of_100": round(recommended.score, 1),
         "points_gained_by_recommendation": comparison.improvement,

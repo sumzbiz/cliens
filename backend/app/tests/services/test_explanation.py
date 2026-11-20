@@ -120,3 +120,14 @@ class TestFacts:
         changed = {change["parameter"] for change in facts["recommended_changes"]}
         assert {"concrete grade", "water/cement ratio", "concrete cover"} <= changed
         assert facts["your_score_out_of_100"] == round(comparison.proposed.score, 1)
+
+
+class TestScoreScale:
+    """The scale a score is out of is a fact, so prose may name it."""
+
+    async def test_out_of_100_is_traceable(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _install(monkeypatch, {"summary": "Your mix scores near 0 out of 100.", "points": []})
+
+        result = await _explain(_service())
+
+        assert "out of 100" in result.summary
