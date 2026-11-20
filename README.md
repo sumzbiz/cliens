@@ -184,9 +184,9 @@ Top feature importances: `exposure_severity` 0.413 · `grade_mpa` 0.297 ·
 `water_cement_ratio` 0.135 · `walling_burnt_clay_brick` 0.089 ·
 `cement_content_kg_m3` 0.054
 
-Measured against the rules score over every district, situation and a range of
-realistic mixes, the headline score is within 0.45 points on average (3.2 at
-worst). Training and inference build features through one shared function,
+Measured against the rules score over 30,000 sampled specifications across every
+district, situation, walling and cement type, the headline score is within 0.31
+points on average (1.2 at the 95th percentile, 3.5 at worst). Training and inference build features through one shared function,
 `app/ml/quality_score.build_features`. Retrain with `npm run train:models`.
 
 > **What this model is.** It is trained on **scenarios labelled by the rules
@@ -315,8 +315,8 @@ npm run test:all      # lint + typecheck + API type drift + backend + frontend
 
 | | |
 | --- | --- |
-| Backend tests | **382** |
-| Frontend tests | **4** |
+| Backend tests | **408** |
+| Frontend tests | **14** |
 | Type checking | `mypy --strict` clean · `tsc --strict` clean |
 | Linting | `ruff` + `black` clean · `eslint` clean |
 | API contract | `npm run check:types` fails if the committed frontend types differ from the backend's OpenAPI spec |
@@ -348,6 +348,19 @@ analysis and does not consider foundations, seismic design, or workmanship.
 
 **The ML model learned a rule set, not reality.** See §5.
 
+**The model's training range is narrower than the form's.** It was trained on
+cement contents of 260–380 kg/m³ and water/cement ratios of 0.35–0.60, while the
+form accepts 100–800 kg/m³ and 0.30–0.70. Outside the trained range the headline
+score is an extrapolation; the rules score and every compliance finding shown
+beside it are still exact. Grades (M15–M45), cement types (OPC, PPC, PSC) and
+walling materials outside what the model and knowledge base know are rejected
+outright. Retraining over the full form range would close this.
+
+**Deep satellite zoom depends on the Mapbox account.** When Mapbox rejects the
+token (revoked, URL-restricted, or the account's tile access is blocked), the map
+detects it, caps zoom at Esri's level 19 and credits Esri, rather than showing
+placeholder tiles. Restoring zoom 20–22 needs the Mapbox account fixed.
+
 **Coverage is Tamil Nadu only** — 37 districts, bounded by the source GRIB extent
 (8.25–13.0°N, 76.75–80.0°E). Anywhere outside is refused, not guessed.
 
@@ -371,7 +384,7 @@ This repository is the documentation and the proof of work for our submission.
 | Offline data pipeline | [`ml/`](ml/) — GRIB → CSV → district profiles → model |
 | Backend | [`backend/app/`](backend/app/) — strict `routes → services → repositories → core` layering |
 | Frontend | [`frontend/src/`](frontend/src/) |
-| Test suite | 382 backend + 4 frontend, all passing |
+| Test suite | 408 backend + 14 frontend, all passing |
 | Engineering conventions | [`CLAUDE.md`](CLAUDE.md) |
 | Commit history | Every architectural decision and bug fix is recorded in the log |
 
