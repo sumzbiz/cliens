@@ -25,6 +25,7 @@ set -euo pipefail
 PROJECT_ID="${PROJECT_ID:?set PROJECT_ID}"
 REGION="${REGION:-asia-south1}"
 NAME_PREFIX="${NAME_PREFIX:-cliens}"
+CUSTOM_DOMAIN="${CUSTOM_DOMAIN:-}"  # e.g. cliens.example.com; needs one DNS A record (see outputs)
 ENV_FILE="${ENV_FILE:-.env}"
 TF_DIR="infra/gcp"
 STATE_BUCKET="${STATE_BUCKET:-${PROJECT_ID}-tfstate}"
@@ -40,7 +41,7 @@ tf() { terraform -chdir="$TF_DIR" "$@"; }
 tf_vars() {
   printf '%s\n' "-var=project_id=${PROJECT_ID}" "-var=region=${REGION}" \
     "-var=name_prefix=${NAME_PREFIX}" "-var=image_tag=${TAG}" \
-    "-var=populated_secrets=$(populated_secrets_json)"
+    "-var=populated_secrets=$(populated_secrets_json)" "-var=custom_domain=${CUSTOM_DOMAIN:-}"
 }
 
 # Read one key from the .env file without echoing it, the way python-dotenv (and

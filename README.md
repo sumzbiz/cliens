@@ -7,7 +7,7 @@ check it against IS 456:2000, and estimate how long it will last.**
 
 Built by **Team Zenovators** for the **Tech For Good (Build with AI)** hackathon
 
-🌐 **Live:** http://13.234.43.91
+🌐 **Live:** https://cliens.lightninglogics.me
 
 </div>
 
@@ -309,6 +309,7 @@ PROJECT_ID=your-project deploy/gcp/deploy.sh   # bootstrap → secrets → build
 | Piece | Service |
 | --- | --- |
 | Frontend (Caddy: SPA + `/api` proxy) | Cloud Run `cliens-web`, public |
+| Custom domain | `cliens.lightninglogics.me` through a global external Application Load Balancer (static IP, Google-managed certificate, HTTP→HTTPS redirect); Cloud Run domain mapping isn't offered in asia-south1 |
 | Backend (FastAPI) | Cloud Run `cliens-api`, **ingress internal-only** — reachable only through the frontend over Direct VPC egress |
 | Database | Cloud SQL PostgreSQL 16, **private IP only**; PostGIS created by the backend's entrypoint |
 | Network | VPC + subnet with Private Google Access, private services access peering |

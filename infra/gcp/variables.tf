@@ -68,6 +68,12 @@ variable "web_max_instances" {
 
 # --- Application configuration -------------------------------------------------
 
+variable "custom_domain" {
+  description = "Public hostname for the app, e.g. cliens.example.com. Empty serves only the run.app URL."
+  type        = string
+  default     = ""
+}
+
 variable "gemini_model" {
   description = "Gemini model used for plain-language explanations."
   type        = string
