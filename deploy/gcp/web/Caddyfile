@@ -23,9 +23,11 @@
 			# service, not the frontend the browser asked for.
 			header_up Host {http.reverse_proxy.upstream.host}
 
-			# Earth Engine outlooks and voice synthesis can take most of a minute.
+			# An uncached Earth Engine outlook may take up to the backend's 90 s
+			# budget; these sit above it so the backend's own typed timeout error,
+			# not a proxy cut-off, is what the browser sees.
 			transport http {
-				response_header_timeout 90s
+				response_header_timeout 110s
 				read_timeout 120s
 			}
 		}

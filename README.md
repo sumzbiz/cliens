@@ -432,7 +432,7 @@ needs driver-specific options in both connection URLs (asyncpg and psycopg spell
 them differently).
 
 **The climate outlook is slow the first time.** An Earth Engine CMIP6 outlook for a
-new place takes 25–40 s; repeats within ~1 km are served from cache. It is context
+new place takes up to about a minute (43 s measured, plus ~7 s on a fresh instance); repeats within ~1 km are served from cache. It is context
 only and never changes the score.
 
 **Explanations depend on Gemini being up.** When Gemini fails, or writes a figure

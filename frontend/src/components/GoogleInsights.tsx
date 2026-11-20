@@ -109,7 +109,7 @@ export function ClimateOutlookPanel({ load }: { load: () => Promise<ClimateProje
       )}
       {loading && (
         <div className="mt-4">
-          <Spinner label="Running the climate models — this can take half a minute…" />
+          <Spinner label="Running the climate models — the first time for a place can take up to a minute…" />
         </div>
       )}
       {projection !== null && (

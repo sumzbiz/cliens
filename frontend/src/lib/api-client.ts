@@ -285,7 +285,7 @@ export const apiClient = {
    * Mid-century climate outlook at a point (NASA NEX-GDDP-CMIP6 via Earth Engine).
    *
    * Context beside the score, not an input to it. The first request for a place
-   * can take half a minute; repeats are cached on the server.
+   * can take up to a minute; repeats are cached on the server.
    */
   getClimateProjection(latitude: number, longitude: number): Promise<ClimateProjection> {
     const query = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude) });

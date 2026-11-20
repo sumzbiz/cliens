@@ -50,7 +50,7 @@ resource "google_cloud_run_v2_service" "api" {
 
   template {
     service_account = google_service_account.api.email
-    # An Earth Engine outlook can take most of a minute on first request.
+    # Above the backend's 90 s Earth Engine budget and the proxy's 110 s.
     timeout = "120s"
 
     scaling {

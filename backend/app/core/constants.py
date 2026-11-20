@@ -188,7 +188,10 @@ CACHE_TTL_DAYS: Final[int] = 30
 # failures (timeouts, 5xx, 429) — never to a 4xx, which would just fail again.
 # ---------------------------------------------------------------------------
 EXTERNAL_REQUEST_TIMEOUT_SECONDS: Final[float] = 10.0
-EARTH_ENGINE_TIMEOUT_SECONDS: Final[float] = 60.0
+# Measured on Cloud Run: an uncached CMIP6 outlook took 43 s, plus about 7 s to
+# authenticate on a fresh instance; 90 s leaves headroom. The frontend proxy
+# (deploy/gcp/web/Caddyfile) and the Cloud Run request timeout sit above this.
+EARTH_ENGINE_TIMEOUT_SECONDS: Final[float] = 90.0
 GEMINI_TIMEOUT_SECONDS: Final[float] = 30.0
 # CALIBRATED. The prompt caps the report at 400 words; this token ceiling leaves
 # comfortable headroom above that while bounding cost and latency.
