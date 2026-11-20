@@ -3,13 +3,15 @@
  *
  * The flow is five routes, so the answers cannot live in a screen component —
  * navigating would discard them. This holds the accumulating specification and the
- * district catalogue, and nothing else. It deliberately does *not* hold the score:
+ * district catalogue, and nothing else. The specification and any drawn outline
+ * are also mirrored to sessionStorage, so a refresh does not lose them. It deliberately does *not* hold the score:
  * that belongs to the results page, which fetches it, so a stale score can never be
  * shown next to freshly edited inputs.
  */
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 
 import { apiClient } from '@/lib/api-client';
+import { loadSession, saveSession } from '@/state/persisted-session';
 import {
   SessionContext,
   type Area,
@@ -39,10 +41,18 @@ const DEFAULT_SPECIFICATION: SiteSpecification = {
 };
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [spec, setSpec] = useState<SiteSpecification>(DEFAULT_SPECIFICATION);
-  const [area, setArea] = useState<Area | null>(null);
+  // Read once: a refresh resumes where the user was instead of at step one.
+  const [restored] = useState(() => loadSession());
+  const [spec, setSpec] = useState<SiteSpecification>(
+    () => restored?.spec ?? DEFAULT_SPECIFICATION
+  );
+  const [area, setArea] = useState<Area | null>(() => restored?.area ?? null);
   const [districts, setDistricts] = useState<DistrictList | null>(null);
   const [districtsError, setDistrictsError] = useState<unknown>(null);
+
+  useEffect(() => {
+    saveSession({ spec, area });
+  }, [spec, area]);
 
   // Fetched once for the whole session rather than per page: the globe, the
   // search popup and the results page all need it, and it does not change.
