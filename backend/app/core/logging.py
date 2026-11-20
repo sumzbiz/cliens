@@ -93,6 +93,13 @@ def _add_request_id(_logger: logging.Logger, _method_name: str, event_dict: Even
     return event_dict
 
 
+def _name_field(_logger: logging.Logger, _method_name: str, event_dict: EventDict) -> EventDict:
+    """Emit the module name bound by ``get_logger`` under the conventional ``logger`` key."""
+    if "logger_name" in event_dict:
+        event_dict["logger"] = event_dict.pop("logger_name")
+    return event_dict
+
+
 def _cloud_logging_fields(project: str) -> Callable[[logging.Logger, str, EventDict], EventDict]:
     """A processor adding the fields Cloud Logging reads from a JSON log line.
 
@@ -130,6 +137,7 @@ def configure_logging(settings: Settings) -> None:
         # module name as `logger` instead, giving the same field without the
         # stdlib dependency.
         _add_request_id,
+        _name_field,
         structlog.processors.TimeStamper(fmt="iso", utc=True),
         structlog.processors.StackInfoRenderer(),
         structlog.processors.UnicodeDecoder(),
@@ -184,7 +192,17 @@ def get_logger(
     """
     # `logger=name` is bound explicitly here rather than added by a processor; see
     # the note in configure_logging.
-    logger: structlog.stdlib.BoundLogger = structlog.get_logger(name).bind(
-        logger=name, **initial_values
+    #
+    # Passed as initial values, NOT via `.bind()`: binding the lazy proxy builds
+    # the real logger immediately, with whatever configuration exists at that
+    # moment. Module-level loggers are created at import, before
+    # configure_logging runs, so `.bind()` froze every one of them on structlog's
+    # default console renderer — production logged plain text without request
+    # IDs. Initial values stay lazy until the first log call.
+    #
+    # The name travels as `logger_name` because `logger` is already a parameter of
+    # structlog.get_logger; `_name_field` renames it on output.
+    logger: structlog.stdlib.BoundLogger = structlog.get_logger(
+        name, logger_name=name, **initial_values
     )
     return logger
