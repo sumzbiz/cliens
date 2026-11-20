@@ -34,10 +34,12 @@ from app.services.rules_engine import (
     ConcreteMix,
     ElementSituation,
     MaterialSelection,
+    MemberType,
     RulesAssessment,
     assess,
     classify_exposure,
     quality_score_label,
+    required_cover_mm,
 )
 
 logger = get_logger(__name__)
@@ -90,12 +92,19 @@ class ScoredSelection:
         # silently claim the mix is better or worse than the code's baseline.
         provided_ratio = self.selection.concrete.water_cement_ratio
         required_ratio = provided_ratio
+        provided_cover = self.selection.nominal_cover_mm
+        required_cover = provided_cover
         worst_shortfall = 0.0
 
         for finding in self.assessment.findings:
             if finding.parameter == "water_cement_ratio":
                 required_ratio = finding.required
                 provided_ratio = finding.provided
+            elif finding.parameter == "nominal_cover_mm":
+                # Cover has its own physical term; counting it as a shortfall as
+                # well would penalise the same deficiency twice.
+                required_cover = finding.required
+                provided_cover = finding.provided
             elif not finding.compliant:
                 # Shortfall as a positive fraction, read from the finding's signed
                 # margin. For grade and cement content that equals
@@ -110,6 +119,8 @@ class ScoredSelection:
         return calculations.estimated_service_life_years(
             required_water_cement_ratio=required_ratio,
             provided_water_cement_ratio=provided_ratio,
+            required_cover_mm=required_cover,
+            provided_cover_mm=provided_cover,
             worst_other_shortfall_ratio=worst_shortfall,
         )
 
@@ -161,6 +172,7 @@ class QualityScoringService:
         district: str,
         proposed: MaterialSelection | None,
         situation: ElementSituation = "exposed",
+        member: MemberType = "beam",
     ) -> ScoreComparison:
         """Score a district both as proposed and as recommended.
 
@@ -170,6 +182,7 @@ class QualityScoringService:
                 mode — a deliberately conventional baseline is scored instead, so
                 the comparison still shows what the advice is worth.
             situation: How the element sits relative to the weather.
+            member: Which reinforced-concrete member it is, which sets its cover.
 
         Raises:
             LocationNotCoveredError: If the district has no profile.
@@ -178,6 +191,7 @@ class QualityScoringService:
             profile=self._climate.get_profile(district),
             proposed=proposed,
             situation=situation,
+            member=member,
         )
 
     def compare_area(
@@ -186,6 +200,7 @@ class QualityScoringService:
         area: AreaBounds,
         proposed: MaterialSelection | None,
         situation: ElementSituation = "exposed",
+        member: MemberType = "beam",
     ) -> tuple[ScoreComparison, AreaClimate]:
         """Score a drawn area both as proposed and as recommended.
 
@@ -203,6 +218,7 @@ class QualityScoringService:
             profile=area_climate.profile,
             proposed=proposed,
             situation=situation,
+            member=member,
         )
         return comparison, area_climate
 
@@ -212,6 +228,7 @@ class QualityScoringService:
         profile: DistrictClimateProfile,
         proposed: MaterialSelection | None,
         situation: ElementSituation = "exposed",
+        member: MemberType = "beam",
     ) -> ScoreComparison:
         """Score one climate profile, however it was obtained.
 
@@ -226,9 +243,11 @@ class QualityScoringService:
             self._require_known_walling(proposed.walling_material_id)
         summary = self._climate.to_rules_summary(profile)
 
-        baseline = proposed if proposed is not None else self._conventional_baseline(situation)
+        baseline = (
+            proposed if proposed is not None else self._conventional_baseline(situation, member)
+        )
         scored_proposed = self._score(summary, baseline)
-        scored_recommended = self._score(summary, self.recommend(summary, situation))
+        scored_recommended = self._score(summary, self.recommend(summary, situation, member))
 
         logger.info(
             "quality_score_compared",
@@ -249,12 +268,19 @@ class QualityScoringService:
             model_version=self._model.version,
         )
 
-    def recommend(self, summary: ClimateSummary, situation: ElementSituation) -> MaterialSelection:
+    def recommend(
+        self,
+        summary: ClimateSummary,
+        situation: ElementSituation,
+        member: MemberType = "beam",
+    ) -> MaterialSelection:
         """Derive a compliant specification for this climate.
 
         Built from the exposure class's own minimums, with a margin added above
-        each because specifying exactly at the limit leaves nothing for site
-        variation.
+        each mix parameter because specifying exactly at the limit leaves nothing
+        for site variation. Cover is recommended at exactly the nominal value:
+        IS 456 clause 26.4.2 already sets its tolerance at +10/-0 mm, so the
+        nominal figure is a floor that site practice may only exceed.
         """
         exposure = classify_exposure(summary, situation, self._knowledge_base).exposure
 
@@ -283,7 +309,9 @@ class QualityScoringService:
                 admixtures=tuple(admixtures),
             ),
             walling_material_id=walling,
+            nominal_cover_mm=required_cover_mm(exposure, member),
             element_situation=situation,
+            member=member,
         )
 
     def _require_known_walling(self, walling_material_id: str) -> None:
@@ -313,7 +341,9 @@ class QualityScoringService:
         )
 
     @staticmethod
-    def _conventional_baseline(situation: ElementSituation) -> MaterialSelection:
+    def _conventional_baseline(
+        situation: ElementSituation, member: MemberType
+    ) -> MaterialSelection:
         """The specification a builder would reach for without advice."""
         return MaterialSelection(
             concrete=ConcreteMix(
@@ -323,5 +353,7 @@ class QualityScoringService:
                 cement_type=constants.CONVENTIONAL_BASELINE_CEMENT_TYPE,
             ),
             walling_material_id=constants.CONVENTIONAL_BASELINE_WALLING,
+            nominal_cover_mm=constants.CONVENTIONAL_BASELINE_COVER_MM,
             element_situation=situation,
+            member=member,
         )

@@ -20,6 +20,7 @@ from app.services.rules_engine import (
     ConcreteMix,
     ElementSituation,
     MaterialSelection,
+    MemberType,
     assess,
     classify_exposure,
 )
@@ -57,8 +58,16 @@ class TestServiceLife:
         came out negative and the mismatch never reduced the estimate.
         """
         mix = ConcreteMix(grade="M30", cement_content_kg_m3=340, water_cement_ratio=0.45)
-        unsuitable = scored(MaterialSelection(mix, "burnt_clay_brick", "exposed"))
-        suitable = scored(MaterialSelection(mix, "fly_ash_brick", "exposed"))
+        unsuitable = scored(
+            MaterialSelection(
+                concrete=mix, walling_material_id="burnt_clay_brick", nominal_cover_mm=50.0
+            )
+        )
+        suitable = scored(
+            MaterialSelection(
+                concrete=mix, walling_material_id="fly_ash_brick", nominal_cover_mm=50.0
+            )
+        )
 
         assert not unsuitable.assessment.compliant
         assert suitable.assessment.compliant
@@ -72,7 +81,13 @@ class TestServiceLife:
             water_cement_ratio=exposure.max_water_cement_ratio,
         )
 
-        result = scored(MaterialSelection(mix, "fly_ash_brick", "exposed"))
+        result = scored(
+            MaterialSelection(
+                concrete=mix,
+                walling_material_id="fly_ash_brick",
+                nominal_cover_mm=float(exposure.nominal_cover_mm),
+            )
+        )
 
         assert result.service_life_years == pytest.approx(constants.DESIGN_SERVICE_LIFE_YEARS)
 
@@ -130,3 +145,26 @@ class TestConventionalBaseline:
         assert constants.CONVENTIONAL_BASELINE_WATER_CEMENT_RATIO == pytest.approx(
             mild.max_water_cement_ratio
         )
+        assert constants.CONVENTIONAL_BASELINE_COVER_MM == mild.nominal_cover_mm
+
+
+class TestCoverRecommendation:
+    """The recommendation must clear the cover each member needs, not one figure."""
+
+    @pytest.mark.parametrize("member", constants.MEMBER_TYPES)
+    @pytest.mark.parametrize("situation", ["enclosed", "sheltered", "exposed", "buried", "tidal"])
+    def test_recommendation_meets_cover_for_every_member(
+        self, service: QualityScoringService, situation: ElementSituation, member: MemberType
+    ) -> None:
+        recommended = service.recommend(HUMID_INLAND, situation, member)
+
+        assert assess(HUMID_INLAND, recommended).compliant
+        assert recommended.member == member
+
+    def test_footing_cover_follows_the_member_minimum(self, service: QualityScoringService) -> None:
+        """Buried is Moderate (30 mm), but IS 456 cl. 26.4.2.1 needs 50 mm for footings."""
+        footing = service.recommend(HUMID_INLAND, "buried", "footing")
+        slab = service.recommend(HUMID_INLAND, "buried", "slab")
+
+        assert footing.nominal_cover_mm == 50.0
+        assert slab.nominal_cover_mm == 30.0

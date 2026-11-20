@@ -37,6 +37,8 @@ logger = get_logger(__name__)
 # are defined on the element's situation first and the region's climate second, so
 # this is a required input rather than something inferred from the district.
 ElementSituation = Literal["enclosed", "sheltered", "exposed", "buried", "tidal"]
+# Kept in step with constants.MEMBER_TYPES, which the training script samples from.
+MemberType = Literal["slab", "beam", "column", "footing"]
 
 # Baseline severity implied by the situation alone, before climate escalation.
 # Mirrors IS 456 Table 3: protected surfaces are Mild; buried or continuously
@@ -133,13 +135,22 @@ class ConcreteMix:
     admixtures: tuple[str, ...] = ()
 
 
-@dataclass(frozen=True, slots=True)
+# Keyword-only: with cover added as a required field, a positional call written
+# for the old shape would silently put the element situation into the cover.
+@dataclass(frozen=True, slots=True, kw_only=True)
 class MaterialSelection:
-    """What the user proposes to build with."""
+    """What the user proposes to build with.
+
+    ``nominal_cover_mm`` has no default on purpose: cover is the largest single
+    control on how long reinforcement stays protected, and a default would let an
+    unstated cover pass a check it was never put to.
+    """
 
     concrete: ConcreteMix
     walling_material_id: str
+    nominal_cover_mm: float
     element_situation: ElementSituation = "exposed"
+    member: MemberType = "beam"
 
 
 @dataclass(frozen=True, slots=True)
@@ -427,6 +438,45 @@ def check_mix_compliance(
     return tuple(findings)
 
 
+def required_cover_mm(exposure: ExposureClass, member: MemberType) -> float:
+    """Nominal cover a member needs: the larger of Table 16 and its own minimum."""
+    return max(float(exposure.nominal_cover_mm), constants.MEMBER_MINIMUM_COVER_MM[member])
+
+
+def check_cover(
+    exposure: ExposureClass, member: MemberType, provided_mm: float
+) -> ComplianceFinding:
+    """Check nominal cover to reinforcement against IS 456 Table 16 and clause 26.4.2.
+
+    Cover is what the chlorides or the carbonation front must cross before the
+    steel starts to corrode, and that time grows with the square of its depth —
+    so a shortfall here outweighs any mix improvement the form allows.
+    """
+    required = required_cover_mm(exposure, member)
+    member_governs = constants.MEMBER_MINIMUM_COVER_MM[member] > exposure.nominal_cover_mm
+    reason = (
+        f"the {member} minimum (IS 456 clause 26.4.2)"
+        if member_governs
+        else f"{exposure.label} exposure (IS 456 Table 16)"
+    )
+    compliant = provided_mm >= required
+    return ComplianceFinding(
+        parameter="nominal_cover_mm",
+        label="Concrete cover",
+        required=required,
+        provided=provided_mm,
+        compliant=compliant,
+        margin_ratio=(provided_mm - required) / required,
+        standard="IS 456 Table 16, clause 26.4.2",
+        message=(
+            f"{provided_mm:.0f} mm of cover meets the {required:.0f} mm needed for {reason}."
+            if compliant
+            else f"{provided_mm:.0f} mm of cover is short of the {required:.0f} mm needed for "
+            f"{reason}; the reinforcement will start to corrode much sooner."
+        ),
+    )
+
+
 def check_walling_suitability(
     climate: ClimateSummary, walling_material_id: str, knowledge_base: KnowledgeBase | None = None
 ) -> ComplianceFinding | None:
@@ -526,6 +576,7 @@ def assess(
 
     assessment = classify_exposure(climate, selection.element_situation, base)
     findings = list(check_mix_compliance(assessment.exposure, selection.concrete))
+    findings.append(check_cover(assessment.exposure, selection.member, selection.nominal_cover_mm))
 
     walling = check_walling_suitability(climate, selection.walling_material_id, base)
     if walling is not None:

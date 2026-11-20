@@ -21,7 +21,7 @@ import { useVoice } from '@/state/voice-context';
 import { Button, ChoiceCard, ErrorNotice, RequirementsSummary, Spinner } from '@/components/ui';
 import { gradeLabel, useSiteRequirements } from '@/hooks/useSiteRequirements';
 import { useSession } from '@/state/session-context';
-import { ELEMENT_SITUATIONS } from '@/types/api';
+import { ELEMENT_SITUATIONS, MEMBER_TYPES } from '@/types/api';
 
 /** Consequence text, so a choice is made knowingly rather than guessed at. */
 const CONSEQUENCE: Record<string, string> = {
@@ -37,7 +37,7 @@ export default function ExposurePage() {
   const { spec, update, area } = useSession();
   const navigate = useNavigate();
   const voice = useVoice();
-  const site = useSiteRequirements(spec.district, area, spec.situation);
+  const site = useSiteRequirements(spec.district, area, spec.situation, spec.member);
 
   return (
     <PageShell
@@ -72,6 +72,31 @@ export default function ExposurePage() {
             />
           ))}
 
+          {/* The member sets the cover: IS 456 raises Table 16's figure for
+              columns and footings, so the same site can need 30 mm on a slab and
+              50 mm on a footing. */}
+          <div className="sm:col-span-2">
+            <p className="mb-2 mt-2 text-sm font-medium text-ink-1">Which member is it?</p>
+            <VoiceExplainer
+              text={buildNarration(TA.member.question, TA.member.options)}
+              enabled={voice.enabled}
+              className="mb-3"
+            />
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+              {MEMBER_TYPES.map((member) => (
+                <ChoiceCard
+                  key={member.value}
+                  label={member.label}
+                  hint={member.hint}
+                  selected={spec.member === member.value}
+                  onSelect={() => {
+                    update({ member: member.value });
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
           {/* The class this choice actually produces at this site, live. The
               explainer says the class comes from the answer *and* the measured
               climate; this shows the result instead of leaving it a mystery until
@@ -86,6 +111,7 @@ export default function ExposurePage() {
                   minGrade={gradeLabel(site.requirements.minGradeMpa)}
                   minCementKgM3={site.requirements.minCementKgM3}
                   maxWaterCementRatio={site.requirements.maxWaterCementRatio}
+                  minCoverMm={site.requirements.minCoverMm}
                 />
                 <ul className="mt-4 space-y-1 border-t border-white/10 pt-3 text-xs text-ink-3">
                   {site.requirements.reasons.map((reason) => (
@@ -110,6 +136,11 @@ export default function ExposurePage() {
             The code does not set one standard for all concrete. It sorts an element into an
             exposure class by how much water, salt and air reaches it, then sets a different minimum
             grade, minimum cement content and maximum water/cement ratio for each class.
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-ink-2">
+            Each class also sets the concrete cover over the steel (Table 16), and columns and
+            footings need more (clause 26.4.2). Cover matters most of all: halving it cuts the time
+            before the steel starts to rust to about a quarter.
           </p>
 
           <ul className="mt-4 space-y-2.5 border-t border-white/10 pt-4">

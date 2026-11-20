@@ -30,7 +30,7 @@ import { useSession } from '@/state/session-context';
 import { CEMENT_TYPES, CONCRETE_GRADES, WALLING_MATERIALS } from '@/types/api';
 
 /** Which popup is open, if any. */
-type Editor = 'grade' | 'cement' | 'ratio' | 'walling' | null;
+type Editor = 'grade' | 'cement' | 'ratio' | 'cover' | 'walling' | null;
 
 /**
  * Accepted cement content, kg/m³. The API rejects anything above 800, and below
@@ -39,12 +39,19 @@ type Editor = 'grade' | 'cement' | 'ratio' | 'walling' | null;
 const CEMENT_MIN_KG_M3 = 100;
 const CEMENT_MAX_KG_M3 = 800;
 
+/**
+ * Accepted nominal cover, mm. IS 456 Table 16 runs from 20 (Mild) to 75 (Extreme);
+ * below 10 is not a cover, and far above 100 is almost always a unit slip.
+ */
+const COVER_MIN_MM = 10;
+const COVER_MAX_MM = 100;
+
 export default function MaterialsPage() {
   const { spec, area, update, updateConcrete } = useSession();
   const navigate = useNavigate();
   const [editor, setEditor] = useState<Editor>(null);
   const voice = useVoice();
-  const site = useSiteRequirements(spec.district, area, spec.situation);
+  const site = useSiteRequirements(spec.district, area, spec.situation, spec.member);
   // The field's text is kept separately from the committed value, so typing
   // "3" on the way to "340" is not rejected or sent mid-keystroke.
   const [cementDraft, setCementDraft] = useState(String(spec.concrete.cement_content_kg_m3));
@@ -54,6 +61,13 @@ export default function MaterialsPage() {
     Number.isFinite(cementValue) &&
     cementValue >= CEMENT_MIN_KG_M3 &&
     cementValue <= CEMENT_MAX_KG_M3;
+  const [coverDraft, setCoverDraft] = useState(String(spec.coverMm));
+  const coverValue = Number(coverDraft);
+  const coverValid =
+    coverDraft.trim() !== '' &&
+    Number.isFinite(coverValue) &&
+    coverValue >= COVER_MIN_MM &&
+    coverValue <= COVER_MAX_MM;
 
   const close = () => {
     setEditor(null);
@@ -84,6 +98,7 @@ export default function MaterialsPage() {
             minGrade={gradeLabel(requirements.minGradeMpa)}
             minCementKgM3={requirements.minCementKgM3}
             maxWaterCementRatio={requirements.maxWaterCementRatio}
+            minCoverMm={requirements.minCoverMm}
           />
         )}
       </Panel>
@@ -135,6 +150,20 @@ export default function MaterialsPage() {
           }
           onEdit={() => {
             setEditor('ratio');
+          }}
+        />
+        <SpecRow
+          label="Concrete cover"
+          value={`${String(spec.coverMm)} mm`}
+          note={
+            requirements === null
+              ? 'Concrete over the steel bars'
+              : `Needs at least ${requirements.minCoverMm.toFixed(0)} mm for a ${spec.member}`
+          }
+          ok={requirements === null ? null : spec.coverMm >= requirements.minCoverMm}
+          onEdit={() => {
+            setCoverDraft(String(spec.coverMm));
+            setEditor('cover');
           }}
         />
         <SpecRow
@@ -331,6 +360,65 @@ export default function MaterialsPage() {
         </p>
         <div className="mt-5 flex justify-end">
           <Button onClick={close}>Done</Button>
+        </div>
+      </Popup>
+
+      <Popup
+        open={editor === 'cover'}
+        title="Concrete cover"
+        description="Depth of concrete between the surface and the nearest steel bar."
+        onClose={close}
+      >
+        <VoiceExplainer
+          text={buildNarration(TA.cover.question, TA.cover.options)}
+          enabled={voice.enabled}
+          className="mb-4"
+        />
+        <Field
+          label="Nominal cover"
+          hint={
+            requirements === null
+              ? 'In mm. IS 456 asks for 20 to 75 depending on exposure.'
+              : `In mm. A ${spec.member} at this site needs at least ${requirements.minCoverMm.toFixed(0)}. Halving the cover cuts the time before the steel rusts to a quarter.`
+          }
+        >
+          {(id) => (
+            <>
+              <input
+                id={id}
+                type="number"
+                inputMode="numeric"
+                min={COVER_MIN_MM}
+                max={COVER_MAX_MM}
+                step={5}
+                aria-invalid={!coverValid}
+                aria-describedby={coverValid ? undefined : `${id}-error`}
+                className={`${CONTROL} tabular ${coverValid ? '' : 'border-band-poor/70'}`}
+                value={coverDraft}
+                onChange={(event) => {
+                  const text = event.target.value;
+                  setCoverDraft(text);
+                  const parsed = Number(text);
+                  // Same rule as cement content: only an in-range number is
+                  // committed, anything else stays in the field with an error.
+                  if (text.trim() !== '' && parsed >= COVER_MIN_MM && parsed <= COVER_MAX_MM) {
+                    update({ coverMm: parsed });
+                  }
+                }}
+              />
+              {!coverValid && (
+                <p id={`${id}-error`} role="alert" className="mt-1.5 text-xs text-band-poor">
+                  Enter a value between {COVER_MIN_MM} and {COVER_MAX_MM} mm.
+                </p>
+              )}
+            </>
+          )}
+        </Field>
+
+        <div className="mt-5 flex justify-end">
+          <Button onClick={close} disabled={!coverValid}>
+            Done
+          </Button>
         </div>
       </Popup>
 

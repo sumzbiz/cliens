@@ -60,6 +60,7 @@ PARAMETER_LABELS = {
     "concrete_grade_mpa": "Concrete grade",
     "cement_content_kg_m3": "Cement content (kg/m3)",
     "water_cement_ratio": "Water/cement ratio",
+    "nominal_cover_mm": "Concrete cover (mm)",
     "walling_climate_suitability": "Walling material",
 }
 
@@ -187,6 +188,7 @@ def _spec_lines(scored: ScoredSelection) -> list[str]:
         f"Concrete: {mix.grade}, {mix.cement_content_kg_m3:.0f} kg/m3 cement, "
         f"water/cement {mix.water_cement_ratio:.2f}",
         f"Cement type: {mix.cement_type}",
+        f"Cover: {scored.selection.nominal_cover_mm:.0f} mm ({scored.selection.member})",
         f"Walling: {scored.selection.walling_material_id.replace('_', ' ')}",
     ]
     if mix.admixtures:

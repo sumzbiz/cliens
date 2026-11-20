@@ -427,6 +427,13 @@ export interface components {
              * @enum {string}
              */
             element_situation: "enclosed" | "sheltered" | "exposed" | "buried" | "tidal";
+            /**
+             * Member
+             * @description The reinforced-concrete member, which sets its cover.
+             * @default beam
+             * @enum {string}
+             */
+            member: "slab" | "beam" | "column" | "footing";
         };
         /**
          * BasemapCapabilities
@@ -846,6 +853,11 @@ export interface components {
             /** Walling Material Id */
             walling_material_id: string;
             /**
+             * Nominal Cover Mm
+             * @description Nominal concrete cover to the reinforcement, in mm. Required: it is the largest single control on how long the steel stays protected.
+             */
+            nominal_cover_mm: number;
+            /**
              * Element Situation
              * @default exposed
              * @enum {string}
@@ -999,6 +1011,13 @@ export interface components {
              * @enum {string}
              */
             element_situation: "enclosed" | "sheltered" | "exposed" | "buried" | "tidal";
+            /**
+             * Member
+             * @description The reinforced-concrete member, which sets its cover.
+             * @default beam
+             * @enum {string}
+             */
+            member: "slab" | "beam" | "column" | "footing";
         };
         /**
          * ScoreResponse
@@ -1043,6 +1062,13 @@ export interface components {
             concrete: components["schemas"]["ConcreteMixInput"];
             /** Walling Material Id */
             walling_material_id: string;
+            /** Nominal Cover Mm */
+            nominal_cover_mm: number;
+            /**
+             * Member
+             * @enum {string}
+             */
+            member: "slab" | "beam" | "column" | "footing";
             /**
              * Score
              * @description Headline 0-100 score, from the model.

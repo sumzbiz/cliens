@@ -41,6 +41,7 @@ from app.services.rules_engine import (
     ConcreteMix,
     ElementSituation,
     MaterialSelection,
+    MemberType,
     assess,
     quality_score_label,
 )
@@ -58,6 +59,10 @@ WATER_CEMENT_RATIOS = [0.35, 0.40, 0.45, 0.50, 0.55, 0.60]
 # was an extrapolation — measured at 22 points off the rules on average.
 SITUATIONS: list[ElementSituation] = ["enclosed", "sheltered", "exposed", "buried", "tidal"]
 CEMENT_TYPES = list(constants.SUPPORTED_CEMENT_TYPES)
+# Nominal cover in mm, spanning below Table 16's lowest requirement (20) to above
+# its highest (75), so the model sees both sides of every cover threshold.
+COVERS_MM = [15.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0, 60.0, 75.0, 90.0]
+MEMBERS: list[MemberType] = ["slab", "beam", "column", "footing"]
 ADMIXTURES = list(ADMIXTURE_FEATURES.values())
 
 
@@ -94,7 +99,9 @@ def build_dataset() -> pd.DataFrame:
                                 ),
                             ),
                             walling_material_id=str(rng.choice(walling_ids)),
+                            nominal_cover_mm=float(rng.choice(COVERS_MM)),
                             element_situation=SITUATIONS[int(rng.integers(len(SITUATIONS)))],
+                            member=MEMBERS[int(rng.integers(len(MEMBERS)))],
                         )
                         row = build_features(
                             summary=summary,

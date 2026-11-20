@@ -11,6 +11,7 @@ import type {
   DistrictList,
   GeocodeResults,
   MaterialSelectionInput,
+  MemberType,
   PinResolution,
   ScoreResponse,
   SiteResponse,
@@ -209,11 +210,12 @@ export const apiClient = {
   scoreArea(
     area: AreaBounds,
     materials: MaterialSelectionInput | null,
-    situation: MaterialSelectionInput['element_situation']
+    situation: MaterialSelectionInput['element_situation'],
+    member: MemberType
   ): Promise<ScoreResponse> {
     return request<ScoreResponse>('/score/area', {
       method: 'POST',
-      body: JSON.stringify({ area, materials, element_situation: situation }),
+      body: JSON.stringify({ area, materials, element_situation: situation, member }),
     });
   },
 
@@ -226,7 +228,8 @@ export const apiClient = {
   score(
     district: string,
     materials: MaterialSelectionInput | null,
-    situation: MaterialSelectionInput['element_situation']
+    situation: MaterialSelectionInput['element_situation'],
+    member: MemberType
   ): Promise<ScoreResponse> {
     return request<ScoreResponse>('/score', {
       method: 'POST',
@@ -234,6 +237,7 @@ export const apiClient = {
         district,
         materials,
         element_situation: situation,
+        member,
       }),
     });
   },
@@ -247,9 +251,10 @@ export const apiClient = {
   async downloadReport(
     district: string,
     materials: MaterialSelectionInput | null,
-    situation: MaterialSelectionInput['element_situation']
+    situation: MaterialSelectionInput['element_situation'],
+    member: MemberType
   ): Promise<Blob> {
-    return reportBlob('/reports', { district, materials, element_situation: situation });
+    return reportBlob('/reports', { district, materials, element_situation: situation, member });
   },
 
   /**
@@ -262,9 +267,15 @@ export const apiClient = {
   async downloadAreaReport(
     area: AreaBounds,
     materials: MaterialSelectionInput | null,
-    situation: MaterialSelectionInput['element_situation']
+    situation: MaterialSelectionInput['element_situation'],
+    member: MemberType
   ): Promise<Blob> {
-    return reportBlob('/reports/area', { area, materials, element_situation: situation });
+    return reportBlob('/reports/area', {
+      area,
+      materials,
+      element_situation: situation,
+      member,
+    });
   },
 };
 

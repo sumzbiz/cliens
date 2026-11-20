@@ -58,6 +58,7 @@ export function formatParameter(parameter: string): string {
       concrete_grade_mpa: 'Concrete grade',
       cement_content_kg_m3: 'Cement content',
       water_cement_ratio: 'Water/cement ratio',
+      nominal_cover_mm: 'Concrete cover',
       walling_climate_suitability: 'Walling material',
     }[parameter] ?? parameter
   );

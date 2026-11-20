@@ -330,7 +330,9 @@ RANKER_MODEL_MAX_DEPTH: Final[int] = 6
 QUALITY_MODEL_N_ESTIMATORS: Final[int] = 600
 QUALITY_MODEL_MAX_DEPTH: Final[int] = 6
 QUALITY_MODEL_LEARNING_RATE: Final[float] = 0.08
-QUALITY_MODEL_DRAWS_PER_MIX: Final[int] = 4
+# Cover and member type are drawn per row too; at 4 draws the worst-case gap to
+# the rules score rose to 7.3 points once cover became a feature.
+QUALITY_MODEL_DRAWS_PER_MIX: Final[int] = 8
 
 # ---------------------------------------------------------------------------
 # IS 456 exposure classification
@@ -422,6 +424,29 @@ CONVENTIONAL_BASELINE_CEMENT_KG_M3: Final[float] = 300.0
 CONVENTIONAL_BASELINE_WATER_CEMENT_RATIO: Final[float] = 0.55
 CONVENTIONAL_BASELINE_CEMENT_TYPE: Final[str] = "OPC"
 CONVENTIONAL_BASELINE_WALLING: Final[str] = "burnt_clay_brick"
+# CODIFIED. IS 456 Table 16's nominal cover for Mild exposure — the same code floor
+# as the rest of the baseline.
+CONVENTIONAL_BASELINE_COVER_MM: Final[float] = 20.0
+
+# The reinforced-concrete members the cover check knows. Durability limits in IS
+# 456 apply per element, by its exposure; the member type adds the minimum cover
+# that the element itself requires.
+MEMBER_TYPES: Final[tuple[str, ...]] = ("slab", "beam", "column", "footing")
+
+# CALIBRATED. Upper bound accepted for nominal cover. IS 456 Table 16 tops out at
+# 75 mm (Extreme); anything far beyond is a unit error (cm or inches), not a design.
+MAX_NOMINAL_COVER_MM: Final[float] = 150.0
+
+# CODIFIED. Member minimums on top of Table 16, IS 456:2000 clause 26.4.2:
+# 26.4.2.1 — footings, at least 50 mm; 26.4.2.2 — longitudinal bars in a column,
+# at least 40 mm (and not less than the bar diameter, which this tool does not
+# take as an input). Slabs and beams carry no extra minimum beyond Table 16.
+MEMBER_MINIMUM_COVER_MM: Final[dict[str, float]] = {
+    "slab": 0.0,
+    "beam": 0.0,
+    "column": 40.0,
+    "footing": 50.0,
+}
 
 # CALIBRATED. The concrete grades and cement types the score can rate: exactly the
 # space the quality model was trained over (ml/train_quality_score.py) and the

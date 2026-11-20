@@ -484,18 +484,25 @@ def estimated_service_life_years(
     *,
     required_water_cement_ratio: float,
     provided_water_cement_ratio: float,
+    required_cover_mm: float,
+    provided_cover_mm: float,
     worst_other_shortfall_ratio: float,
 ) -> float:
     """Years of service life this specification implies, from the code's baseline.
 
-    Anchored at ``DESIGN_SERVICE_LIFE_YEARS``: a mix sitting exactly on its
-    exposure class's limits returns exactly that, because those limits are what
-    the 50-year target is written to deliver.
+    Anchored at ``DESIGN_SERVICE_LIFE_YEARS``: a specification sitting exactly on
+    its exposure class's limits returns exactly that, because those limits are
+    what the 50-year target is written to deliver.
 
-    Two adjustments move it from there:
+    Three adjustments move it from there:
 
-    * The water/cement term. Corrosion onset is diffusion-controlled and the
-      diffusion coefficient rises exponentially with w/c, so life scales as
+    * The cover term. Corrosion starts once chlorides or the carbonation front
+      cross the cover. Both advance with the square root of time — Fick's second
+      law for chloride ingress, ``x = K * sqrt(t)`` for carbonation — so the time
+      to cross a cover ``c`` grows with ``c**2``, and life scales as
+      ``(provided / required) ** 2``. Halving the cover quarters the time.
+    * The water/cement term. That ingress is diffusion-controlled and the
+      diffusion coefficient rises exponentially with w/c, so life also scales as
       ``exp(k * (required - provided))``. Beating the limit buys time; exceeding
       it loses time, and steeply.
     * The shortfall term. Missing the minimum grade or cement content means the
@@ -507,13 +514,24 @@ def estimated_service_life_years(
     Args:
         required_water_cement_ratio: The exposure class maximum.
         provided_water_cement_ratio: What the specification proposes.
+        required_cover_mm: The nominal cover the member needs.
+        provided_cover_mm: The nominal cover the specification proposes.
         worst_other_shortfall_ratio: How far the worst of the *other* durability
-            parameters falls below its minimum, as a non-negative fraction of
-            that minimum. Zero when everything else complies.
+            parameters (grade, cement content, walling) falls below its minimum,
+            as a non-negative fraction of that minimum. Zero when they comply.
 
     Returns:
         Years, clamped to the bounds in ``constants``.
+
+    Raises:
+        ValueError: If either cover is not positive.
     """
+    if required_cover_mm <= 0 or provided_cover_mm <= 0:
+        raise ValueError(
+            f"covers must be positive, got required={required_cover_mm}, "
+            f"provided={provided_cover_mm}"
+        )
+    cover_factor = math.pow(provided_cover_mm / required_cover_mm, 2)
     diffusion_factor = math.exp(
         constants.INGRESS_WATER_CEMENT_SENSITIVITY
         * (required_water_cement_ratio - provided_water_cement_ratio)
@@ -527,7 +545,7 @@ def estimated_service_life_years(
         1.0,
     )
 
-    years = constants.DESIGN_SERVICE_LIFE_YEARS * diffusion_factor * shortfall_factor
+    years = constants.DESIGN_SERVICE_LIFE_YEARS * cover_factor * diffusion_factor * shortfall_factor
     return clamp(
         years,
         constants.MIN_ESTIMATED_SERVICE_LIFE_YEARS,

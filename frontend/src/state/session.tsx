@@ -22,13 +22,15 @@ import type { ConcreteMixInput, DistrictList } from '@/types/api';
 
 /**
  * A conventional, unremarkable specification — M20 at 300 kg/m3 and w/c 0.55 with
- * red brick. Chosen as the starting point precisely because it is what gets built
- * by default, so the first score a user sees is a fair reading of the status quo
- * rather than a strawman or a ringer.
+ * 20 mm cover and red brick: the code's Mild-exposure floor, matching the backend's
+ * conventional baseline. Chosen as the starting point precisely because it is what
+ * gets built by default, so the first score a user sees is a fair reading of the
+ * status quo rather than a strawman or a ringer.
  */
 const DEFAULT_SPECIFICATION: SiteSpecification = {
   district: '',
   situation: 'exposed',
+  member: 'beam',
   concrete: {
     grade: 'M20',
     cement_content_kg_m3: 300,
@@ -36,6 +38,7 @@ const DEFAULT_SPECIFICATION: SiteSpecification = {
     cement_type: 'OPC',
     admixtures: [],
   },
+  coverMm: 20,
   wallingMaterialId: 'burnt_clay_brick',
   evaluateOwnMaterials: true,
 };

@@ -11,6 +11,7 @@ const SESSION: PersistedSession = {
   spec: {
     district: 'Madurai',
     situation: 'buried',
+    member: 'footing',
     concrete: {
       grade: 'M35',
       cement_content_kg_m3: 360,
@@ -18,6 +19,7 @@ const SESSION: PersistedSession = {
       cement_type: 'PPC',
       admixtures: ['corrosion inhibitor'],
     },
+    coverMm: 50,
     wallingMaterialId: 'fly_ash_brick',
     evaluateOwnMaterials: true,
   },
@@ -76,6 +78,9 @@ describe('persisted session', () => {
       { ...SESSION.spec, concrete: { ...SESSION.spec.concrete, cement_content_kg_m3: '360' } },
     ],
     ['a missing walling material', { ...SESSION.spec, wallingMaterialId: undefined }],
+    ['an unknown member', { ...SESSION.spec, member: 'chimney' }],
+    ['a missing cover', { ...SESSION.spec, coverMm: undefined }],
+    ['a non-numeric cover', { ...SESSION.spec, coverMm: '50' }],
     [
       'a NaN-like water/cement ratio',
       { ...SESSION.spec, concrete: { ...SESSION.spec.concrete, water_cement_ratio: null } },

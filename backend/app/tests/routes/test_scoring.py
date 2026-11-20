@@ -23,6 +23,7 @@ WEAK_SPEC: dict[str, Any] = {
         "admixtures": [],
     },
     "walling_material_id": "burnt_clay_brick",
+    "nominal_cover_mm": 25,
     "element_situation": "exposed",
 }
 
@@ -35,6 +36,7 @@ STRONG_SPEC: dict[str, Any] = {
         "admixtures": ["corrosion inhibitor"],
     },
     "walling_material_id": "fly_ash_brick",
+    "nominal_cover_mm": 50,
     "element_situation": "exposed",
 }
 
@@ -299,6 +301,54 @@ class TestValidation:
 
         assert response.status_code == 422
         assert response.json()["error"]["code"] == "UNKNOWN_MATERIAL"
+
+
+class TestCover:
+    """Cover is required, checked per member, and drives the service life."""
+
+    async def test_cover_is_required(self, client: AsyncClient) -> None:
+        missing = {k: v for k, v in STRONG_SPEC.items() if k != "nominal_cover_mm"}
+        response = await client.post("/api/score", json={"district": "Salem", "materials": missing})
+
+        assert response.status_code == 422
+
+    @pytest.mark.parametrize("cover", [0, -10, 500])
+    async def test_implausible_cover_is_rejected(self, client: AsyncClient, cover: float) -> None:
+        bad = {**STRONG_SPEC, "nominal_cover_mm": cover}
+        response = await client.post("/api/score", json={"district": "Salem", "materials": bad})
+
+        assert response.status_code == 422
+
+    async def test_member_is_echoed_and_sets_the_requirement(self, client: AsyncClient) -> None:
+        response = await client.post(
+            "/api/score",
+            json={
+                "district": "Salem",
+                "materials": {**STRONG_SPEC, "nominal_cover_mm": 45, "element_situation": "buried"},
+                "element_situation": "buried",
+                "member": "footing",
+            },
+        )
+
+        body = response.json()
+        assert body["proposed"]["member"] == "footing"
+        cover = next(
+            f for f in body["proposed"]["findings"] if f["parameter"] == "nominal_cover_mm"
+        )
+        assert cover["required"] == 50.0
+        assert cover["compliant"] is False
+        assert body["recommended"]["nominal_cover_mm"] == 50.0
+
+    async def test_thinner_cover_shortens_the_service_life(self, client: AsyncClient) -> None:
+        async def life(cover: float) -> float:
+            spec = {**STRONG_SPEC, "nominal_cover_mm": cover}
+            response = await client.post(
+                "/api/score", json={"district": "Salem", "materials": spec}
+            )
+            years: float = response.json()["proposed"]["service_life"]["years"]
+            return years
+
+        assert await life(25) < await life(45) < await life(60)
 
 
 class TestReportDownload:

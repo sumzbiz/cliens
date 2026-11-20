@@ -15,6 +15,7 @@ from app.core import constants
 from app.schemas.common import SchemaBase
 
 ElementSituation = Literal["enclosed", "sheltered", "exposed", "buried", "tidal"]
+MemberType = Literal["slab", "beam", "column", "footing"]
 ScoreBand = Literal["poor", "marginal", "adequate", "good", "excellent"]
 
 Grade = Annotated[
@@ -64,6 +65,17 @@ class MaterialSelectionInput(SchemaBase):
 
     concrete: ConcreteMixInput
     walling_material_id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9_]*$", max_length=80)]
+    nominal_cover_mm: Annotated[
+        float,
+        Field(
+            gt=0,
+            le=constants.MAX_NOMINAL_COVER_MM,
+            description=(
+                "Nominal concrete cover to the reinforcement, in mm. Required: it is "
+                "the largest single control on how long the steel stays protected."
+            ),
+        ),
+    ]
     element_situation: ElementSituation = "exposed"
 
 
@@ -78,6 +90,9 @@ class ScoreRequest(SchemaBase):
     district: Annotated[str, Field(min_length=1, max_length=80)]
     materials: MaterialSelectionInput | None = None
     element_situation: ElementSituation = "exposed"
+    member: MemberType = Field(
+        default="beam", description="The reinforced-concrete member, which sets its cover."
+    )
 
 
 class ComplianceFindingResponse(SchemaBase):
@@ -130,6 +145,8 @@ class ScoredSelectionResponse(SchemaBase):
 
     concrete: ConcreteMixInput
     walling_material_id: str
+    nominal_cover_mm: float
+    member: MemberType
     score: float = Field(ge=0, le=100, description="Headline 0-100 score, from the model.")
     rules_score: float = Field(
         ge=0, le=100, description="The same score computed directly by the rules engine."
@@ -254,6 +271,9 @@ class AreaScoreRequest(SchemaBase):
     area: AreaBoundsInput
     materials: MaterialSelectionInput | None = None
     element_situation: ElementSituation = "exposed"
+    member: MemberType = Field(
+        default="beam", description="The reinforced-concrete member, which sets its cover."
+    )
 
 
 class ClimateProvenanceResponse(SchemaBase):

@@ -21,6 +21,7 @@ from app.schemas.scoring import (
     ComplianceFindingResponse,
     DistrictListResponse,
     MaterialSelectionInput,
+    MemberType,
     PinRequest,
     PinResolutionResponse,
     RecommendationResponse,
@@ -111,11 +112,12 @@ async def create_score(request: ScoreRequest, service: ScoringServiceDep) -> Sco
     Supplying ``materials`` evaluates them. Omitting it returns the recommendation
     against a conventional baseline, so a before/after always exists.
     """
-    proposed = to_selection(request.materials)
+    proposed = to_selection(request.materials, request.member)
     comparison = service.compare(
         district=request.district,
         proposed=proposed,
         situation=request.element_situation,
+        member=request.member,
     )
     return _to_response(comparison)
 
@@ -141,8 +143,9 @@ async def create_area_score(request: AreaScoreRequest, service: ScoringServiceDe
             west=request.area.west,
             east=request.area.east,
         ),
-        proposed=to_selection(request.materials),
+        proposed=to_selection(request.materials, request.member),
         situation=request.element_situation,
+        member=request.member,
     )
     return _to_response(
         comparison,
@@ -155,7 +158,9 @@ async def create_area_score(request: AreaScoreRequest, service: ScoringServiceDe
     )
 
 
-def to_selection(materials: MaterialSelectionInput | None) -> MaterialSelection | None:
+def to_selection(
+    materials: MaterialSelectionInput | None, member: MemberType
+) -> MaterialSelection | None:
     """Map the request body onto the engine's input type.
 
     Shared with the report endpoint, which takes the same body — defined once so
@@ -172,13 +177,16 @@ def to_selection(materials: MaterialSelectionInput | None) -> MaterialSelection 
             admixtures=tuple(materials.concrete.admixtures),
         ),
         walling_material_id=materials.walling_material_id,
+        nominal_cover_mm=materials.nominal_cover_mm,
         element_situation=materials.element_situation,
+        member=member,
     )
 
 
 SERVICE_LIFE_BASIS = (
-    "Estimated from IS 456's 50-year design life, adjusted for how this mix's "
-    "water/cement ratio and compliance compare to the exposure class minimums. "
+    "Estimated from IS 456's 50-year design life, adjusted for how this "
+    "specification's cover, water/cement ratio and compliance compare to the "
+    "exposure class minimums. "
     "Not a prediction from observed building failures."
 )
 
@@ -208,6 +216,8 @@ def _to_scored(scored: ScoredSelection) -> ScoredSelectionResponse:
             admixtures=tuple(scored.selection.concrete.admixtures),
         ),
         walling_material_id=scored.selection.walling_material_id,
+        nominal_cover_mm=scored.selection.nominal_cover_mm,
+        member=scored.selection.member,
         score=scored.score,
         rules_score=scored.rules_score,
         band=scored.band,

@@ -20,12 +20,15 @@ from app.services.rules_engine import (
     ConcreteMix,
     ElementSituation,
     MaterialSelection,
+    MemberType,
     assess,
+    check_cover,
     check_mix_compliance,
     check_walling_suitability,
     classify_exposure,
     climate_conditions,
     parse_grade_mpa,
+    required_cover_mm,
 )
 
 
@@ -305,6 +308,63 @@ class TestMixCompliance:
             assert "IS 456" in finding.standard
 
 
+# IS 456:2000 Table 16, transcribed independently of the knowledge base file.
+TABLE_16_COVER_MM = {"mild": 20, "moderate": 30, "severe": 45, "very_severe": 50, "extreme": 75}
+
+
+class TestCover:
+    """IS 456 Table 16 nominal cover, raised by clause 26.4.2 for some members."""
+
+    @pytest.mark.parametrize(("exposure_id", "cover"), sorted(TABLE_16_COVER_MM.items()))
+    def test_table_16_is_transcribed_exactly(self, exposure_id: str, cover: int) -> None:
+        assert load_knowledge_base().exposure_by_id(exposure_id).nominal_cover_mm == cover
+
+    @pytest.mark.parametrize(
+        ("member", "exposure_id", "expected"),
+        [
+            ("slab", "mild", 20.0),
+            ("beam", "severe", 45.0),
+            ("column", "mild", 40.0),  # cl. 26.4.2.2 governs over Table 16's 20 mm
+            ("column", "very_severe", 50.0),  # Table 16 governs over the 40 mm minimum
+            ("footing", "moderate", 50.0),  # cl. 26.4.2.1 governs over Table 16's 30 mm
+            ("footing", "extreme", 75.0),
+        ],
+    )
+    def test_requirement_is_the_larger_of_table_and_member(
+        self, member: MemberType, exposure_id: str, expected: float
+    ) -> None:
+        exposure = load_knowledge_base().exposure_by_id(exposure_id)
+        assert required_cover_mm(exposure, member) == expected
+
+    def test_short_cover_fails_with_a_negative_margin(self) -> None:
+        exposure = load_knowledge_base().exposure_by_id("severe")
+
+        finding = check_cover(exposure, "beam", 25.0)
+
+        assert not finding.compliant
+        assert finding.margin_ratio == pytest.approx((25.0 - 45.0) / 45.0)
+        assert "Table 16" in finding.standard
+
+    def test_the_message_names_the_governing_rule(self) -> None:
+        exposure = load_knowledge_base().exposure_by_id("mild")
+
+        assert "column minimum" in check_cover(exposure, "column", 30.0).message
+        assert "Mild exposure" in check_cover(exposure, "slab", 30.0).message
+
+    def test_assessment_always_checks_cover(self) -> None:
+        selection = MaterialSelection(
+            concrete=ConcreteMix(grade="M40", cement_content_kg_m3=360, water_cement_ratio=0.40),
+            walling_material_id="fly_ash_brick",
+            nominal_cover_mm=15.0,
+        )
+
+        result = assess(climate(), selection)
+
+        cover = next(f for f in result.findings if f.parameter == "nominal_cover_mm")
+        assert not cover.compliant
+        assert not result.compliant, "a rich mix must not hide inadequate cover"
+
+
 class TestWallingSuitability:
     """Brick choice is judged against the published climate-suitability table."""
 
@@ -363,6 +423,7 @@ class TestFullAssessment:
         selection = MaterialSelection(
             concrete=ConcreteMix(grade="M30", cement_content_kg_m3=340, water_cement_ratio=0.42),
             walling_material_id="fly_ash_brick",
+            nominal_cover_mm=50.0,
             element_situation="exposed",
         )
 
@@ -375,6 +436,7 @@ class TestFullAssessment:
         selection = MaterialSelection(
             concrete=ConcreteMix(grade="M20", cement_content_kg_m3=280, water_cement_ratio=0.60),
             walling_material_id="burnt_clay_brick",
+            nominal_cover_mm=50.0,
             element_situation="exposed",
         )
 
@@ -387,6 +449,7 @@ class TestFullAssessment:
         selection = MaterialSelection(
             concrete=ConcreteMix(grade="M30", cement_content_kg_m3=320, water_cement_ratio=0.45),
             walling_material_id="fly_ash_brick",
+            nominal_cover_mm=50.0,
         )
 
         coastal = assess(climate(coast_km=5.0), selection)
@@ -408,6 +471,7 @@ class TestFullAssessment:
                 cement_type="PSC",
             ),
             walling_material_id="fly_ash_brick",
+            nominal_cover_mm=50.0,
         )
 
         result = assess(climate(coast_km=5.0), selection)
@@ -424,6 +488,7 @@ class TestFullAssessment:
         selection = MaterialSelection(
             concrete=ConcreteMix(grade="M30", cement_content_kg_m3=340, water_cement_ratio=0.45),
             walling_material_id=walling,
+            nominal_cover_mm=50.0,
         )
 
         result = assess(climate(temperature=41.0), selection)
@@ -435,6 +500,7 @@ class TestFullAssessment:
         selection = MaterialSelection(
             concrete=ConcreteMix(grade="M30", cement_content_kg_m3=340, water_cement_ratio=0.45),
             walling_material_id="burnt_clay_brick",
+            nominal_cover_mm=50.0,
         )
 
         result = assess(climate(temperature=41.0), selection)
@@ -446,6 +512,7 @@ class TestFullAssessment:
         selection = MaterialSelection(
             concrete=ConcreteMix(grade="M25", cement_content_kg_m3=310, water_cement_ratio=0.48),
             walling_material_id="aac_block",
+            nominal_cover_mm=50.0,
         )
 
         first = assess(climate(), selection)

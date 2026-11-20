@@ -10,12 +10,16 @@ import { createContext, useContext } from 'react';
 
 import type { LatLon } from '@/lib/geo';
 
-import type { ConcreteMixInput, DistrictList, ElementSituation } from '@/types/api';
+import type { ConcreteMixInput, DistrictList, ElementSituation, MemberType } from '@/types/api';
 
 export interface SiteSpecification {
   district: string;
   situation: ElementSituation;
+  /** Which reinforced-concrete member; it sets the cover the code requires. */
+  member: MemberType;
   concrete: ConcreteMixInput;
+  /** Nominal cover to the reinforcement, in mm. */
+  coverMm: number;
   wallingMaterialId: string;
   /** True = score what I chose. False = tell me what to use. */
   evaluateOwnMaterials: boolean;

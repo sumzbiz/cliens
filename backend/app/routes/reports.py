@@ -54,8 +54,9 @@ async def download_report(request: ScoreRequest, service: ScoringServiceDep) -> 
     """
     comparison = service.compare(
         district=request.district,
-        proposed=to_selection(request.materials),
+        proposed=to_selection(request.materials, request.member),
         situation=request.element_situation,
+        member=request.member,
     )
     return _pdf_response(comparison, evaluated_own_materials=request.materials is not None)
 
@@ -86,8 +87,9 @@ async def download_area_report(request: AreaScoreRequest, service: ScoringServic
             west=request.area.west,
             east=request.area.east,
         ),
-        proposed=to_selection(request.materials),
+        proposed=to_selection(request.materials, request.member),
         situation=request.element_situation,
+        member=request.member,
     )
     return _pdf_response(comparison, evaluated_own_materials=request.materials is not None)
 

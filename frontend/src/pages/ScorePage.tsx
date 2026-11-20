@@ -34,6 +34,7 @@ function materialsPayload(spec: SiteSpecification): MaterialSelectionInput | nul
     ? {
         concrete: spec.concrete,
         walling_material_id: spec.wallingMaterialId,
+        nominal_cover_mm: spec.coverMm,
         element_situation: spec.situation,
       }
     : null;
@@ -67,8 +68,8 @@ export default function ScorePage() {
   const report = useAction(async (): Promise<Blob> => {
     const outlineBounds = area === null ? null : boundsOf(area);
     return outlineBounds !== null
-      ? apiClient.downloadAreaReport(outlineBounds, materialsPayload(spec), spec.situation)
-      : apiClient.downloadReport(spec.district, materialsPayload(spec), spec.situation);
+      ? apiClient.downloadAreaReport(outlineBounds, materialsPayload(spec), spec.situation, spec.member)
+      : apiClient.downloadReport(spec.district, materialsPayload(spec), spec.situation, spec.member);
   });
 
   useEffect(() => {
@@ -86,8 +87,8 @@ export default function ScorePage() {
     const outlineBounds = area === null ? null : boundsOf(area);
     const pending =
       outlineBounds !== null
-        ? apiClient.scoreArea(outlineBounds, materialsPayload(spec), spec.situation)
-        : apiClient.score(spec.district, materialsPayload(spec), spec.situation);
+        ? apiClient.scoreArea(outlineBounds, materialsPayload(spec), spec.situation, spec.member)
+        : apiClient.score(spec.district, materialsPayload(spec), spec.situation, spec.member);
 
     pending
       .then((response) => {
@@ -429,6 +430,9 @@ function formatFindingValue(parameter: string, value: number): string {
   }
   if (parameter === 'cement_content_kg_m3') {
     return `${number} kg/m³`;
+  }
+  if (parameter === 'nominal_cover_mm') {
+    return `${number} mm`;
   }
   return number;
 }

@@ -12,10 +12,10 @@
  */
 import type { LatLon } from '@/lib/geo';
 import type { Area, SiteSpecification } from '@/state/session-context';
-import { ELEMENT_SITUATIONS } from '@/types/api';
+import { ELEMENT_SITUATIONS, MEMBER_TYPES } from '@/types/api';
 
 /** Versioned, so a future shape change cannot be misread as this one. */
-export const SESSION_STORAGE_KEY = 'cliens.session.v1';
+export const SESSION_STORAGE_KEY = 'cliens.session.v2';
 
 export interface PersistedSession {
   spec: SiteSpecification;
@@ -38,6 +38,8 @@ function isSpecification(value: unknown): value is SiteSpecification {
   return (
     typeof value.district === 'string' &&
     ELEMENT_SITUATIONS.some((situation) => situation.value === value.situation) &&
+    MEMBER_TYPES.some((member) => member.value === value.member) &&
+    isFiniteNumber(value.coverMm) &&
     typeof value.wallingMaterialId === 'string' &&
     typeof value.evaluateOwnMaterials === 'boolean' &&
     typeof concrete.grade === 'string' &&

@@ -18,7 +18,12 @@
     "grades numerically instead of parsing strings.",
     "",
     "SEVERITY: exposure classes carry an explicit ordinal so 'at least Severe' is a",
-    "comparison rather than a lookup table of special cases."
+    "comparison rather than a lookup table of special cases.",
+    "",
+    "COVER: nominal_cover_mm is IS 456:2000 Table 16 (nominal cover to meet",
+    "durability requirements). The Table 16 notes permit 5 mm less in some cases",
+    "(M35+ in Severe/Very Severe, bars up to 12 mm in Mild); those reductions are",
+    "not applied, so the requirement errs on the safe side."
   ],
 
   "exposure_classes": [
@@ -31,6 +36,7 @@
       "max_water_cement_ratio": 0.55,
       "min_grade": "M20",
       "min_grade_mpa": 20,
+      "nominal_cover_mm": 20,
       "standard": "IS 456 Table 5"
     },
     {
@@ -42,6 +48,7 @@
       "max_water_cement_ratio": 0.5,
       "min_grade": "M25",
       "min_grade_mpa": 25,
+      "nominal_cover_mm": 30,
       "standard": "IS 456 Table 5"
     },
     {
@@ -53,6 +60,7 @@
       "max_water_cement_ratio": 0.45,
       "min_grade": "M30",
       "min_grade_mpa": 30,
+      "nominal_cover_mm": 45,
       "standard": "IS 456 Table 5"
     },
     {
@@ -64,6 +72,7 @@
       "max_water_cement_ratio": 0.45,
       "min_grade": "M35",
       "min_grade_mpa": 35,
+      "nominal_cover_mm": 50,
       "standard": "IS 456 Table 5"
     },
     {
@@ -75,6 +84,7 @@
       "max_water_cement_ratio": 0.4,
       "min_grade": "M40",
       "min_grade_mpa": 40,
+      "nominal_cover_mm": 75,
       "standard": "IS 456 Table 5"
     }
   ],

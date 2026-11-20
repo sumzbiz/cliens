@@ -1,0 +1,43 @@
+{
+  "model": "quality_score",
+  "artifact": "quality_score_20261120_0a587c3.pkl",
+  "trained_at": "2026-11-20T09:46:34.890707+00:00",
+  "git_commit": "0a587c3",
+  "random_seed": 20231204,
+  "sklearn_target": "damage_ratio",
+  "metrics": {
+    "r2": 0.9992193286062224,
+    "mae": 0.5014679208254735,
+    "train_samples": 69619,
+    "test_samples": 17405,
+    "target_units": "quality score, 0-100"
+  },
+  "training_data": "rules-labelled scenarios over real district climate",
+  "climate_source": "data.grib via district_climate_profiles.json",
+  "honesty_note": "Labels are computed by the Phase 3 IS 456 rules engine, not observed from real buildings. This model interpolates a deterministic rule set smoothly; it is not evidence about building survival.",
+  "feature_importances": {
+    "mean_relative_humidity_percent": 4.69726533666592e-06,
+    "wetness_index": 8.124279401255028e-06,
+    "wet_dry_cycles_per_year": 8.220615733410172e-06,
+    "max_wind_gust_ms": 3.6544455647270997e-06,
+    "mean_max_temperature_c": 6.243417356946691e-06,
+    "distance_to_coast_km": 0.0007019844207881079,
+    "exposure_severity": 0.33605780289913967,
+    "grade_mpa": 0.13512746161984535,
+    "cement_content_kg_m3": 0.024736220013115675,
+    "water_cement_ratio": 0.06061905616000588,
+    "nominal_cover_mm": 0.22024821228334368,
+    "required_cover_mm": 0.17491921785897402,
+    "walling_absorption_percent": 0.0025532859328263303,
+    "walling_aac_block": 0.002094783339745614,
+    "walling_burnt_clay_brick": 0.04252277621270742,
+    "walling_concrete_solid_block": 7.943176929380411e-07,
+    "walling_engineering_brick": 8.88467578862519e-07,
+    "walling_fly_ash_brick": 9.132669812375013e-07,
+    "cement_OPC": 0.00017393407152058543,
+    "cement_PPC": 1.84025872621171e-06,
+    "cement_PSC": 1.877168645455892e-06,
+    "has_corrosion_inhibitor": 0.0002062695056845011,
+    "has_waterproofing_admixture": 1.742179285490578e-06
+  }
+}
