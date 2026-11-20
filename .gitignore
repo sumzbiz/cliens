@@ -52,8 +52,12 @@ Thumbs.db
 # and IS committed, so a fresh clone can score without the source file present.
 # ---------------------------------------------------------------------------
 *.grib
+*.grib2
 *.grib.*.idx
 ml/data/*.csv
+# Climate rasters (NetCDF, e.g. CMIP6 downloads) are hundreds of MB per variable.
+*.nc
+*.nc4
 
 # ---------------------------------------------------------------------------
 # Carried over from the upstream repository's .gitignore on merge.

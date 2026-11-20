@@ -17,11 +17,15 @@ Built by **Team Zenovators** for the **Tech For Good (Build with AI)** hackathon
 
 ### Overall Architecture
 
-![CLIENS — Overall Architecture](https://github.com/Build-with-AI-Code-for-Communities/cities-team-263-zenovators/blob/d9568be7a601ff8ac2262ac369a9db5dbadfd279/ChatGPT%20Image%20Aug%209%2C%202026%2C%2002_52_33%20PM.png)
+![CLIENS — Overall Architecture](docs/images/architecture-system.jpeg)
 
 ### Cloud Architecture
 
-![CLIENS — Cloud Architecture](https://github.com/Build-with-AI-Code-for-Communities/cities-team-263-zenovators/blob/bcf6c3bd9f5c70bde76b71b7c9d23185c7c81187/bf6c3464-b8a6-4093-9861-884f3f90e3f0.jpeg)
+![CLIENS — Cloud Architecture](docs/images/architecture-aws.jpeg)
+
+The [target architecture](docs/images/architecture-target.png), including the planned
+Earth Engine, Gemini and IMD integrations that are not built yet, is in
+[`docs/`](docs/README.md).
 
 
 ---
@@ -33,11 +37,11 @@ Built by **Team Zenovators** for the **Tech For Good (Build with AI)** hackathon
 **Repository:** https://github.com/Build-with-AI-Code-for-Communities/cities-team-263-zenovators
 
 | Name |
-| --- | --- |
+| --- |
 | **Naveen** |
-| **Suman** | 
-| **Surjune** | 
-| **Gowdham Karthik** | 
+| **Suman** |
+| **Surjune** |
+| **Gowdham Karthik** |
 
 ---
 
@@ -306,19 +310,21 @@ Full detail, including what this setup deliberately does *not* do, is in
 ## 10. Testing
 
 ```bash
-npm run test:all      # lint + typecheck + backend + frontend
+npm run test:all      # lint + typecheck + API type drift + backend + frontend
 ```
 
 | | |
 | --- | --- |
-| Backend tests | **350** |
+| Backend tests | **382** |
 | Frontend tests | **4** |
 | Type checking | `mypy --strict` clean · `tsc --strict` clean |
 | Linting | `ruff` + `black` clean · `eslint` clean |
+| API contract | `npm run check:types` fails if the committed frontend types differ from the backend's OpenAPI spec |
 
 Tests never make real network calls — every external client is mocked with
-`respx`. Integration tests run against a real PostGIS database, so a broken
-extension or schema drift fails the suite rather than only failing in production.
+`respx`. Integration tests run against a real PostGIS database (`npm run db:up`),
+so a broken extension or schema drift fails the suite rather than only failing in
+production. Unit tests that never touch the database run without it.
 
 ---
 
@@ -365,7 +371,7 @@ This repository is the documentation and the proof of work for our submission.
 | Offline data pipeline | [`ml/`](ml/) — GRIB → CSV → district profiles → model |
 | Backend | [`backend/app/`](backend/app/) — strict `routes → services → repositories → core` layering |
 | Frontend | [`frontend/src/`](frontend/src/) |
-| Test suite | 350 backend + 4 frontend, all passing |
+| Test suite | 382 backend + 4 frontend, all passing |
 | Engineering conventions | [`CLAUDE.md`](CLAUDE.md) |
 | Commit history | Every architectural decision and bug fix is recorded in the log |
 
