@@ -98,26 +98,6 @@ class MaterialService:
             for component in constants.BUILDING_COMPONENTS
         )
 
-    async def resistance_table(self, selection: MaterialSelection) -> dict[str, dict[str, float]]:
-        """Build the resistance table the score engine consumes.
-
-        Shaped as ``{component: {hazard: resistance}}``, which is exactly what
-        ``calculations.resistance_weighted_stress`` expects — so the engine never
-        needs to know the catalogue exists.
-
-        Raises:
-            UnknownMaterialError: If the selection cannot be resolved.
-        """
-        resolved = await self.resolve_selection(selection)
-        return {
-            material.component: {
-                "wind": material.resistance.wind,
-                "flood": material.resistance.flood,
-                "heat": material.resistance.heat,
-            }
-            for material in resolved
-        }
-
     # ------------------------------------------------------------------
     # Mapping
     # ------------------------------------------------------------------
