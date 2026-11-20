@@ -158,7 +158,7 @@ to coast (computed from the land/sea mask in the sea-surface-temperature field).
 
 ## 5. The Scoring Engine
 
-A **hybrid**: a deterministic rules engine plus a model that smooths it.
+A deterministic rules engine sets the score; an ML model estimates the same score as a cross-check.
 
 **1. Rules engine — `services/rules_engine.py`**
 Classifies the IS 456 exposure class from how the element sits, following
@@ -177,7 +177,7 @@ storeys the building has. It is **not** a structural or hazard-loss assessment:
 it knows nothing of storeys, structural system, loads, plinth height or seismic
 zone, so it cannot say whether a building will stand, flood or remain insurable.
 
-**2. ML model — `GradientBoostingRegressor`**
+**2. ML model — `GradientBoostingRegressor` (cross-check)**
 
 | Metric | Value |
 | --- | --- |
@@ -191,9 +191,15 @@ Top feature importances: `exposure_severity` 0.336 · `nominal_cover_mm` 0.220 �
 `required_cover_mm` 0.175 · `grade_mpa` 0.135 · `water_cement_ratio` 0.061
 
 Measured against the rules score over 30,000 sampled specifications across every
-district, situation, member, cover, walling and cement type, the headline score is
-within 0.45 points on average (1.4 at the 95th percentile, 2.4 at the 99th, 6.3 at
-worst). Training and inference build features through one shared function,
+district, situation, member, cover, walling and cement type, the model is within
+0.45 points on average (1.4 at the 95th percentile, 2.4 at the 99th, 6.3 at worst).
+
+**Why the headline is the rules score, not the model.** A tree ensemble trained on a
+grid of values is a staircase between and beyond its training points. Sweeping one
+input at a time showed it: every w/c from 0.58 to 0.70 scored an identical 66.9
+while the rules fell to 56.0, and 45 mm of cover scored *below* 40 mm. The rules
+score is exact, continuous and monotone in every input, so it is what the page,
+the comparison and the PDF report; the model's estimate is shown beside it. Training and inference build features through one shared function,
 `app/ml/quality_score.build_features`. Retrain with `npm run train:models`.
 
 > **What this model is.** It is trained on **scenarios labelled by the rules

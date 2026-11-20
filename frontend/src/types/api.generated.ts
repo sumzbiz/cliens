@@ -1071,14 +1071,14 @@ export interface components {
             member: "slab" | "beam" | "column" | "footing";
             /**
              * Score
-             * @description Headline 0-100 score, from the model.
+             * @description Headline 0-100 score, computed by the IS 456 rules engine.
              */
             score: number;
             /**
-             * Rules Score
-             * @description The same score computed directly by the rules engine.
+             * Model Score
+             * @description The ML model's estimate of the same score, returned as a cross-check.
              */
-            rules_score: number;
+            model_score: number;
             /**
              * Band
              * @enum {string}

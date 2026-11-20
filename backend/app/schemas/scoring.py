@@ -175,9 +175,13 @@ class ScoredSelectionResponse(SchemaBase):
     walling_material_id: str
     nominal_cover_mm: float
     member: MemberType
-    score: float = Field(ge=0, le=100, description="Headline 0-100 score, from the model.")
-    rules_score: float = Field(
-        ge=0, le=100, description="The same score computed directly by the rules engine."
+    score: float = Field(
+        ge=0, le=100, description="Headline 0-100 score, computed by the IS 456 rules engine."
+    )
+    model_score: float = Field(
+        ge=0,
+        le=100,
+        description="The ML model's estimate of the same score, returned as a cross-check.",
     )
     band: ScoreBand
     compliant: bool

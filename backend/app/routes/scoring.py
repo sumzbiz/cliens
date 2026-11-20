@@ -224,7 +224,7 @@ def _to_scored(scored: ScoredSelection) -> ScoredSelectionResponse:
         nominal_cover_mm=scored.selection.nominal_cover_mm,
         member=scored.selection.member,
         score=scored.score,
-        rules_score=scored.rules_score,
+        model_score=scored.model_score,
         band=scored.band,
         compliant=scored.assessment.compliant,
         service_life=_to_service_life(scored),

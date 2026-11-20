@@ -17,7 +17,7 @@ function selection(overrides: Partial<ScoredSelection> = {}): ScoredSelection {
     nominal_cover_mm: 45,
     member: 'beam',
     score: 80,
-    rules_score: 80,
+    model_score: 80,
     band: 'good',
     compliant: true,
     findings: [],
@@ -94,9 +94,41 @@ describe('complianceVerdict', () => {
     );
   });
 
+  const finding = (parameter: string, margin: number) => ({
+    parameter,
+    label: parameter,
+    required: 1,
+    provided: 1,
+    compliant: true,
+    margin_ratio: margin,
+    standard: 'IS 456',
+    message: '',
+  });
+
   it('describes the margin once every check is met', () => {
-    expect(complianceVerdict(selection({ band: 'good' }), 'A typical local build')).toBe(
+    const roomy = selection({ band: 'good', findings: [finding('concrete_grade_mpa', 0.2)] });
+    expect(complianceVerdict(roomy, 'A typical local build')).toBe(
       'A typical local build clears the code comfortably.'
+    );
+  });
+
+  it('calls a specification sitting on a minimum "little margin", whatever its band', () => {
+    const onTheLimit = selection({
+      band: 'good',
+      findings: [finding('concrete_grade_mpa', 0.2), finding('nominal_cover_mm', 0)],
+    });
+    expect(complianceVerdict(onTheLimit, 'Your specification')).toBe(
+      'Your specification meets the code, with little margin.'
+    );
+  });
+
+  it('ignores the walling check, whose margin is not a spec-versus-limit gap', () => {
+    const walled = selection({
+      band: 'excellent',
+      findings: [finding('concrete_grade_mpa', 0.3), finding('walling_climate_suitability', 0)],
+    });
+    expect(complianceVerdict(walled, 'Your specification')).toBe(
+      'Your specification is well ahead of the code minimum.'
     );
   });
 });

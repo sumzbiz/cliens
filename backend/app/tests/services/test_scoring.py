@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import random
 from dataclasses import replace
+from itertools import pairwise
 from typing import cast, get_args
 
 import pytest
@@ -350,3 +351,40 @@ class TestRecommendationUpgradesTheUsersSpecification:
 
             assert result.recommended.rules_score >= result.proposed.rules_score, mine
             assert result.improvement >= 0, mine
+
+
+class TestHeadlineScore:
+    """The headline responds to every input, in the right direction, without plateaus."""
+
+    @staticmethod
+    def headline(service: QualityScoringService, ratio: float, cover: float) -> float:
+        profile = ClimateDataService().get_profile("Madurai")
+        mine = replace(spec("M25", 300.0, ratio, cover), element_situation="buried")
+        return service.compare_profile(
+            profile=profile, proposed=mine, situation="buried", member="beam"
+        ).proposed.score
+
+    def test_the_headline_is_the_rules_score(self, real_service: QualityScoringService) -> None:
+        profile = ClimateDataService().get_profile("Madurai")
+        result = real_service.compare_profile(
+            profile=profile, proposed=spec("M25", 300.0, 0.5, 30.0)
+        )
+
+        assert result.proposed.score == result.proposed.rules_score
+
+    def test_score_falls_steadily_as_water_cement_rises(
+        self, real_service: QualityScoringService
+    ) -> None:
+        """The model's estimate was flat from w/c 0.58 to 0.70; the headline must not be."""
+        ratios = [step / 100 for step in range(40, 71, 2)]
+        scores = [self.headline(real_service, ratio, 30.0) for ratio in ratios]
+
+        assert all(later <= earlier for earlier, later in pairwise(scores))
+        beyond_limit = [score for ratio, score in zip(ratios, scores, strict=True) if ratio > 0.5]
+        assert len(set(beyond_limit)) == len(beyond_limit), "every step past the limit must cost"
+
+    def test_more_cover_never_scores_lower(self, real_service: QualityScoringService) -> None:
+        """The model's estimate scored 45 mm below 40 mm."""
+        scores = [self.headline(real_service, 0.5, cover) for cover in range(15, 61, 5)]
+
+        assert all(later >= earlier for earlier, later in pairwise(scores))

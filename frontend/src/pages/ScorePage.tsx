@@ -19,7 +19,7 @@ import { ServiceLifeComparison } from '@/components/ServiceLifeComparison';
 import { Button, ErrorNotice, Panel, Popup, Spinner } from '@/components/ui';
 import { useAction } from '@/hooks/useAction';
 import { apiClient } from '@/lib/api-client';
-import { formatParameter, formatPercent } from '@/lib/format';
+import { formatParameter, formatPercent, isSpecComparison } from '@/lib/format';
 import { boundsOf } from '@/lib/geo';
 import { specChanges } from '@/lib/spec-changes';
 import { useSession, type SiteSpecification } from '@/state/session-context';
@@ -357,9 +357,11 @@ export default function ScorePage() {
           </Panel>
 
           <p className="text-xs leading-relaxed text-ink-3">
-            Score computed by {result.model_version}, from IS 456 compliance margins. It reflects
-            code compliance against measured climate — it is not a prediction of whether a building
-            will fail.
+            Score computed by the IS 456 rules engine from each check&rsquo;s compliance margin; the
+            machine-learning model ({result.model_version}) estimates{' '}
+            {result.proposed.model_score.toFixed(0)} for your specification as a cross-check. It
+            reflects code compliance against measured climate — it is not a prediction of whether a
+            building will fail.
           </p>
 
           <Popup
@@ -419,21 +421,6 @@ export default function ScorePage() {
       )}
     </PageShell>
   );
-}
-
-/**
- * Whether a finding's `required`/`provided` really are "the limit" and "what you
- * specified".
- *
- * For grade, cement content and water/cement ratio they are. The walling check is
- * different: it reports the *climate's* humidity against the threshold at which
- * corrosion accelerates, and decides compliance from whether the chosen material
- * suits that climate. Rendering those two numbers under "Code needs" and "You
- * have" said the user supplied 81.4 where 75 was required and still failed, which
- * is not what happened. Rows like that show their message instead.
- */
-function isSpecComparison(parameter: string): boolean {
-  return parameter !== 'walling_climate_suitability';
 }
 
 /**

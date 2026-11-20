@@ -7,14 +7,17 @@ produce a 0-100 score, and always computes both sides of the comparison:
 * **recommend** — derive a compliant specification for that district.
 
 Whichever mode is asked for, the other is computed too, so a before/after is
-always available. That is cheap because the recommendation is *derived* from the
-exposure class rather than searched for, which also makes it compliant by
-construction and its reasoning the standard itself.
+always available. The recommendation is the user's own specification raised
+wherever it falls short of the exposure class's targets, so it is compliant and
+never scores below what the user chose.
 
-The score is rules-derived. ``rules_engine.quality_score_label`` defines it; the ML
-model smooths that definition and supplies the headline figure, with the rules
-value returned alongside so the two can be compared. Neither is evidence about
-real building outcomes.
+The headline score is the rules score, ``rules_engine.quality_score_label``: exact,
+continuous and monotone in every input. The ML model's estimate of that same score
+is returned alongside as a cross-check. It used to be the headline, but a tree
+ensemble trained on a grid of values is a staircase between and beyond its
+training points — every w/c from 0.58 to 0.70 scored an identical 66.9 while the
+rules fell to 56.0 — and it was not monotone (45 mm of cover scored below 40 mm).
+Neither figure is evidence about real building outcomes.
 """
 
 from __future__ import annotations
@@ -67,8 +70,8 @@ class ScoredSelection:
 
     @property
     def score(self) -> float:
-        """The headline figure: the model's smoothed value."""
-        return self.model_score
+        """The headline figure: the rules score, exact and monotone in every input."""
+        return self.rules_score
 
     @property
     def band(self) -> str:
