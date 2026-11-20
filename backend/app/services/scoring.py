@@ -19,7 +19,7 @@ real building outcomes.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 from app.core import calculations, constants
 from app.core.exceptions import UnknownMaterialError
@@ -38,6 +38,7 @@ from app.services.rules_engine import (
     RulesAssessment,
     assess,
     classify_exposure,
+    parse_grade_mpa,
     quality_score_label,
     required_cover_mm,
 )
@@ -247,7 +248,9 @@ class QualityScoringService:
             proposed if proposed is not None else self._conventional_baseline(situation, member)
         )
         scored_proposed = self._score(summary, baseline)
-        scored_recommended = self._score(summary, self.recommend(summary, situation, member))
+        scored_recommended = self._score(
+            summary, self.recommend(summary, situation, member, base=baseline)
+        )
 
         logger.info(
             "quality_score_compared",
@@ -273,8 +276,74 @@ class QualityScoringService:
         summary: ClimateSummary,
         situation: ElementSituation,
         member: MemberType = "beam",
+        base: MaterialSelection | None = None,
     ) -> MaterialSelection:
-        """Derive a compliant specification for this climate.
+        """The specification we would advise, starting from what the user chose.
+
+        Without ``base`` this is the climate-derived target alone. With it, the
+        target only ever *raises* the user's specification: each numeric parameter
+        moves just where it falls short (grade, cement content, cover up; w/c
+        down), admixtures are added and never removed, and a cement type or
+        walling material is swapped only if the alternative scores strictly better
+        under the rules — otherwise the user's own choice stands.
+
+        Built purely from the minimums, the advice told a user who had
+        over-specified to downgrade: an M45 mix at 60 mm cover was "improved" to
+        M30 at 45 mm, sixteen points worse and half the service life. Upgrading
+        the user's own specification instead means the advice can never score
+        below it, and a specification that already meets every target comes back
+        unchanged.
+        """
+        target = self._targets(summary, situation, member)
+        if base is None:
+            return target
+
+        concrete = base.concrete
+        target_mix = target.concrete
+        held = {admixture.lower() for admixture in concrete.admixtures}
+        upgraded = replace(
+            base,
+            concrete=replace(
+                concrete,
+                grade=(
+                    concrete.grade
+                    if parse_grade_mpa(concrete.grade) >= parse_grade_mpa(target_mix.grade)
+                    else target_mix.grade
+                ),
+                cement_content_kg_m3=max(
+                    concrete.cement_content_kg_m3, target_mix.cement_content_kg_m3
+                ),
+                water_cement_ratio=min(concrete.water_cement_ratio, target_mix.water_cement_ratio),
+                admixtures=concrete.admixtures
+                + tuple(a for a in target_mix.admixtures if a.lower() not in held),
+            ),
+            nominal_cover_mm=max(base.nominal_cover_mm, target.nominal_cover_mm),
+            element_situation=situation,
+            member=member,
+        )
+
+        alternatives = (
+            replace(
+                upgraded,
+                concrete=replace(upgraded.concrete, cement_type=target_mix.cement_type),
+            ),
+            replace(upgraded, walling_material_id=target.walling_material_id),
+        )
+        for alternative in alternatives:
+            # Applied one at a time against the running best, so each swap has to
+            # earn its place on top of the previous one.
+            if self._rules_score(summary, alternative) > self._rules_score(summary, upgraded):
+                upgraded = alternative
+        return upgraded
+
+    def _rules_score(self, summary: ClimateSummary, selection: MaterialSelection) -> float:
+        """The rules-defined score alone, for comparing candidate specifications."""
+        return quality_score_label(assess(summary, selection, self._knowledge_base))
+
+    def _targets(
+        self, summary: ClimateSummary, situation: ElementSituation, member: MemberType
+    ) -> MaterialSelection:
+        """The climate-derived specification, independent of anything the user chose.
 
         Built from the exposure class's own minimums, with a margin added above
         each mix parameter because specifying exactly at the limit leaves nothing

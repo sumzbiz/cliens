@@ -7,13 +7,16 @@ specification — which must not depend on any trained artifact.
 
 from __future__ import annotations
 
-from typing import cast
+import random
+from dataclasses import replace
+from typing import cast, get_args
 
 import pytest
 
 from app.core import constants
-from app.ml.quality_score import QualityScoreModel
+from app.ml.quality_score import ADMIXTURE_FEATURES, WALLING_FEATURE_IDS, QualityScoreModel
 from app.repositories.knowledge_base import load_knowledge_base
+from app.routes.dependencies import get_scoring_service
 from app.services.climate_data import ClimateDataService
 from app.services.rules_engine import (
     ClimateSummary,
@@ -23,8 +26,12 @@ from app.services.rules_engine import (
     MemberType,
     assess,
     classify_exposure,
+    parse_grade_mpa,
 )
 from app.services.scoring import QualityScoringService, ScoredSelection
+
+SITUATIONS: tuple[ElementSituation, ...] = get_args(ElementSituation)
+MEMBERS: tuple[MemberType, ...] = get_args(MemberType)
 
 HUMID_INLAND = ClimateSummary(
     district="Karur",
@@ -168,3 +175,129 @@ class TestCoverRecommendation:
 
         assert footing.nominal_cover_mm == 50.0
         assert slab.nominal_cover_mm == 30.0
+
+
+def spec(
+    grade: str,
+    cement: float,
+    ratio: float,
+    cover: float,
+    *,
+    cement_type: str = "PPC",
+    admixtures: tuple[str, ...] = (),
+    walling: str = "fly_ash_brick",
+) -> MaterialSelection:
+    return MaterialSelection(
+        concrete=ConcreteMix(
+            grade=grade,
+            cement_content_kg_m3=cement,
+            water_cement_ratio=ratio,
+            cement_type=cement_type,
+            admixtures=admixtures,
+        ),
+        walling_material_id=walling,
+        nominal_cover_mm=cover,
+    )
+
+
+@pytest.fixture
+def real_service() -> QualityScoringService:
+    """The production wiring, real model included, for headline-score properties."""
+    return get_scoring_service(ClimateDataService())
+
+
+class TestRecommendationUpgradesTheUsersSpecification:
+    """Advice raises a specification where it falls short and never lowers it."""
+
+    def test_an_over_specified_mix_comes_back_unchanged(
+        self, service: QualityScoringService
+    ) -> None:
+        """It used to be "improved" from M45 at 60 mm to M30 at 45 mm."""
+        mine = spec("M45", 380.0, 0.35, 60.0)
+
+        assert service.recommend(HUMID_INLAND, "exposed", "beam", base=mine) == mine
+
+    def test_only_what_falls_short_is_raised(self, service: QualityScoringService) -> None:
+        mine = spec("M45", 380.0, 0.35, 30.0)
+
+        advised = service.recommend(HUMID_INLAND, "exposed", "beam", base=mine)
+
+        assert advised.concrete == mine.concrete, "a strong mix must not be downgraded"
+        assert advised.nominal_cover_mm == 45.0
+
+    def test_no_parameter_moves_the_wrong_way(self, service: QualityScoringService) -> None:
+        mine = spec("M25", 300.0, 0.50, 25.0, cement_type="OPC", walling="burnt_clay_brick")
+
+        advised = service.recommend(HUMID_INLAND, "exposed", "beam", base=mine)
+
+        assert parse_grade_mpa(advised.concrete.grade) >= parse_grade_mpa(mine.concrete.grade)
+        assert advised.concrete.cement_content_kg_m3 >= mine.concrete.cement_content_kg_m3
+        assert advised.concrete.water_cement_ratio <= mine.concrete.water_cement_ratio
+        assert advised.nominal_cover_mm >= mine.nominal_cover_mm
+
+    def test_admixtures_are_added_never_removed(self, service: QualityScoringService) -> None:
+        mine = spec("M30", 340.0, 0.42, 45.0, admixtures=("waterproofing admixture",))
+        coastal = ClimateSummary(
+            district="Coast",
+            mean_relative_humidity_percent=80.0,
+            wetness_index=0.1,
+            wet_dry_cycles_per_year=40.0,
+            max_wind_gust_ms=20.0,
+            mean_max_temperature_c=33.0,
+            distance_to_coast_km=5.0,
+        )
+
+        advised = service.recommend(coastal, "exposed", "beam", base=mine)
+
+        assert "waterproofing admixture" in advised.concrete.admixtures
+        assert "corrosion inhibitor" in advised.concrete.admixtures
+
+    def test_a_suitable_choice_is_kept(self, service: QualityScoringService) -> None:
+        """AAC block is not the climate's first pick here, but it is not worse."""
+        mine = spec("M30", 340.0, 0.42, 45.0, walling="aac_block")
+
+        advised = service.recommend(HUMID_INLAND, "exposed", "beam", base=mine)
+
+        assert advised.walling_material_id == "aac_block"
+
+    def test_an_unsuitable_choice_is_replaced(self, service: QualityScoringService) -> None:
+        """Burnt clay brick fails the humidity check, so the advice swaps it."""
+        mine = spec("M30", 340.0, 0.42, 45.0, walling="burnt_clay_brick")
+
+        advised = service.recommend(HUMID_INLAND, "exposed", "beam", base=mine)
+
+        assert advised.walling_material_id != "burnt_clay_brick"
+
+    def test_advice_never_scores_below_the_users_specification(
+        self, real_service: QualityScoringService
+    ) -> None:
+        """Seeded sweep over the input space, on both the rules and the headline score."""
+        rng = random.Random(constants.RANDOM_SEED)  # noqa: S311 — a seeded test sweep, not crypto
+        climate = ClimateDataService()
+        for _ in range(300):
+            situation = rng.choice(SITUATIONS)
+            member = rng.choice(MEMBERS)
+            mine = replace(
+                spec(
+                    rng.choice(constants.SUPPORTED_CONCRETE_GRADES),
+                    rng.choice([250.0, 300.0, 340.0, 400.0, 450.0]),
+                    rng.choice([0.32, 0.40, 0.45, 0.55, 0.65]),
+                    rng.choice([15.0, 25.0, 40.0, 50.0, 75.0]),
+                    cement_type=rng.choice(constants.SUPPORTED_CEMENT_TYPES),
+                    admixtures=tuple(
+                        rng.sample(list(ADMIXTURE_FEATURES.values()), rng.randint(0, 2))
+                    ),
+                    walling=rng.choice(list(WALLING_FEATURE_IDS)),
+                ),
+                element_situation=situation,
+                member=member,
+            )
+            result = real_service.compare(
+                district=rng.choice(climate.available_districts),
+                proposed=mine,
+                situation=situation,
+                member=member,
+            )
+
+            assert result.recommended.rules_score >= result.proposed.rules_score, mine
+            assert result.improvement >= 0, mine
