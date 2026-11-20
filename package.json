@@ -25,6 +25,7 @@
     "dev:backend": "node scripts/py.mjs -m uvicorn app.main:app --reload --reload-dir app --port 8010",
     "dev:frontend": "npm run dev --workspace frontend",
     "generate:types": "node scripts/generate-types.mjs",
+    "check:types": "node scripts/check-types.mjs",
     "lint:backend": "node scripts/py.mjs -m ruff check --config pyproject.toml app ../db/migrations && node scripts/py.mjs -m black --check --config pyproject.toml app ../db/migrations",
     "lint:frontend": "npm run lint --workspace frontend",
     "lint": "npm run lint:backend && npm run lint:frontend",
@@ -37,7 +38,7 @@
     "test:backend": "node scripts/py.mjs -m pytest",
     "test:backend:cov": "node scripts/py.mjs -m pytest --cov --cov-report=term-missing",
     "test:frontend": "npm run test --workspace frontend",
-    "test:all": "npm run lint && npm run typecheck && npm run test:backend:cov && npm run test:frontend",
+    "test:all": "npm run lint && npm run typecheck && npm run check:types && npm run test:backend:cov && npm run test:frontend",
     "train:models": "node scripts/py.mjs ../ml/train_all.py",
     "smoke": "node scripts/smoke_test.mjs"
   },

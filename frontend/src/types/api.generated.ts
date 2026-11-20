@@ -218,6 +218,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/reports/area": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download the client report for a drawn site as a PDF
+         * @description The same report, for a boundary drawn on the map rather than a named district.
+         *
+         *     A separate endpoint for the same reason `/score/area` is separate: a drawn
+         *     outline has no district name, and `ScoreRequest` requires one. Without this,
+         *     downloading the report after plotting a site failed validation before it ever
+         *     reached the engine.
+         */
+        post: operations["download_area_report_api_reports_area_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tiles/{z}/{x}/{y}": {
         parameters: {
             query?: never;
@@ -1453,6 +1478,58 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["ScoreRequest"];
+            };
+        };
+        responses: {
+            /** @description The report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description The request did not match the expected shape. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description No measured climate profile for that district, or models not trained. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    download_area_report_api_reports_area_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AreaScoreRequest"];
             };
         };
         responses: {

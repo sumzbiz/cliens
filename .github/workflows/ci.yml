@@ -73,6 +73,22 @@ jobs:
         working-directory: backend
         run: pytest --cov --cov-report=term-missing --cov-report=xml
 
+      # The frontend is typed against types generated from this backend's OpenAPI
+      # spec. Regenerating them here and diffing catches a schema change that was
+      # never propagated to the frontend.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install openapi-typescript
+        run: npm ci
+
+      - name: Check generated frontend types are current
+        env:
+          CLIENS_PYTHON: python
+        run: npm run check:types
+
       - name: Upload coverage artifact
         if: always()
         uses: actions/upload-artifact@v4
