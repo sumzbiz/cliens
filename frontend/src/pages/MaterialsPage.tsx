@@ -27,10 +27,10 @@ import {
 } from '@/components/ui';
 import { gradeLabel, useSiteRequirements } from '@/hooks/useSiteRequirements';
 import { useSession } from '@/state/session-context';
-import { CEMENT_TYPES, CONCRETE_GRADES, WALLING_MATERIALS } from '@/types/api';
+import { ADMIXTURES, CEMENT_TYPES, CONCRETE_GRADES, WALLING_MATERIALS } from '@/types/api';
 
 /** Which popup is open, if any. */
-type Editor = 'grade' | 'cement' | 'ratio' | 'cover' | 'walling' | null;
+type Editor = 'grade' | 'cement' | 'ratio' | 'cover' | 'admixtures' | 'walling' | null;
 
 /**
  * Accepted cement content, kg/m³. The API rejects anything above 800, and below
@@ -164,6 +164,21 @@ export default function MaterialsPage() {
           onEdit={() => {
             setCoverDraft(String(spec.coverMm));
             setEditor('cover');
+          }}
+        />
+        <SpecRow
+          label="Admixtures"
+          value={
+            spec.concrete.admixtures.length === 0 ? 'None' : String(spec.concrete.admixtures.length)
+          }
+          note={
+            spec.concrete.admixtures.length === 0
+              ? 'Optional additives in the mix'
+              : spec.concrete.admixtures.join(', ')
+          }
+          ok={null}
+          onEdit={() => {
+            setEditor('admixtures');
           }}
         />
         <SpecRow
@@ -419,6 +434,42 @@ export default function MaterialsPage() {
           <Button onClick={close} disabled={!coverValid}>
             Done
           </Button>
+        </div>
+      </Popup>
+
+      <Popup
+        open={editor === 'admixtures'}
+        title="Admixtures"
+        description="Additives mixed into the concrete. Choose any that apply."
+        onClose={close}
+      >
+        <VoiceExplainer
+          text={buildNarration(TA.admixtures.question, TA.admixtures.options)}
+          enabled={voice.enabled}
+          className="mb-4"
+        />
+        <div className="space-y-2">
+          {ADMIXTURES.map((admixture) => {
+            const chosen = spec.concrete.admixtures.includes(admixture.value);
+            return (
+              <ChoiceCard
+                key={admixture.value}
+                label={admixture.label}
+                hint={admixture.hint}
+                selected={chosen}
+                onSelect={() => {
+                  updateConcrete({
+                    admixtures: chosen
+                      ? spec.concrete.admixtures.filter((item) => item !== admixture.value)
+                      : [...spec.concrete.admixtures, admixture.value],
+                  });
+                }}
+              />
+            );
+          })}
+        </div>
+        <div className="mt-5 flex justify-end">
+          <Button onClick={close}>Done</Button>
         </div>
       </Popup>
 

@@ -105,6 +105,14 @@ export const TA = {
     ],
   },
 
+  admixtures: {
+    question: 'கலவையில் ஏதேனும் சேர்க்கைப் பொருட்களைச் சேர்க்கிறீர்களா? தேவையானவற்றைத் தேர்ந்தெடுக்கவும்.',
+    options: [
+      'அரிப்புத் தடுப்பான். கடற்கரை அருகே கம்பிகளை உப்பிலிருந்து பாதுகாக்கிறது',
+      'நீர்ப்புகா சேர்க்கை. அடிக்கடி மழை பெய்யும் இடங்களில் நீர் உறிஞ்சுதலைக் குறைக்கிறது',
+    ],
+  },
+
   cover: {
     question:
       'கம்பிகளுக்கு மேல் எவ்வளவு கான்கிரீட் மூடு இருக்கும்? மில்லிமீட்டரில் கொடுங்கள். கம்பி துருப்பிடிப்பதைத் தாமதப்படுத்துவதில் இதுவே மிகப் பெரிய காரணி. மூடு பாதியானால், பாதுகாப்பு காலம் நான்கில் ஒரு பங்காகக் குறையும்.',
@@ -130,6 +138,8 @@ export function scoreNarration(input: {
   proposed: number;
   recommended: number;
   improvement: number;
+  /** True when the recommendation is the user's own specification, unchanged. */
+  unchanged: boolean;
   compliant: boolean;
 }): string {
   const verdict = input.compliant
@@ -142,8 +152,10 @@ export function scoreNarration(input: {
     `உங்கள் திட்டவிவரத்தின் மதிப்பெண் நூற்றுக்கு ${String(Math.round(input.proposed))}.`,
     `நாங்கள் பரிந்துரைக்கும் திட்டவிவரத்தின் மதிப்பெண் நூற்றுக்கு ${String(Math.round(input.recommended))}.`,
     verdict,
-    input.improvement > 0
-      ? `பரிந்துரைக்கப்பட்ட கலவைக்கு மாறினால் ${String(Math.round(input.improvement))} புள்ளிகள் அதிகரிக்கும்.`
-      : 'பரிந்துரை இதை விட மேம்படுத்தாது.',
+    input.unchanged
+      ? 'உங்கள் திட்டவிவரம் ஏற்கனவே நாங்கள் பரிந்துரைக்கும் அனைத்தையும் பூர்த்தி செய்கிறது. மாற்ற எதுவும் இல்லை.'
+      : input.improvement > 0
+        ? `பரிந்துரைக்கப்பட்ட கலவைக்கு மாறினால் ${String(Math.round(input.improvement))} புள்ளிகள் அதிகரிக்கும்.`
+        : 'பரிந்துரைக்கப்பட்ட மாற்றங்கள் நீடித்து உழைப்பதற்கு முக்கியம், ஆனால் மதிப்பெண்ணை அதிகம் மாற்றாது.',
   ].join(' ');
 }

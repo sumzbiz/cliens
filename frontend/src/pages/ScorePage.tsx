@@ -13,6 +13,7 @@ import { PageShell } from '@/components/Shell';
 import { VoiceExplainer } from '@/components/VoiceExplainer';
 import { scoreNarration } from '@/lib/narration.ta';
 import { useVoice } from '@/state/voice-context';
+import { RecommendedChanges } from '@/components/RecommendedChanges';
 import { ScoreComparison } from '@/components/ScoreComparison';
 import { ServiceLifeComparison } from '@/components/ServiceLifeComparison';
 import { Button, ErrorNotice, Panel, Popup, Spinner } from '@/components/ui';
@@ -20,6 +21,7 @@ import { useAction } from '@/hooks/useAction';
 import { apiClient } from '@/lib/api-client';
 import { formatParameter, formatPercent } from '@/lib/format';
 import { boundsOf } from '@/lib/geo';
+import { specChanges } from '@/lib/spec-changes';
 import { useSession, type SiteSpecification } from '@/state/session-context';
 import type { MaterialSelectionInput, ScoreResponse } from '@/types/api';
 
@@ -106,6 +108,8 @@ export default function ScorePage() {
     };
   }, [spec, area]);
 
+  const changes = result === null ? [] : specChanges(result.proposed, result.recommended);
+
   const handleDownload = useCallback(async () => {
     const blob = await report.run();
     if (blob === null) {
@@ -169,6 +173,7 @@ export default function ScorePage() {
               proposed: result.proposed.score,
               recommended: result.recommended.score,
               improvement: result.improvement,
+              unchanged: changes.length === 0,
               compliant: result.proposed.compliant,
             })}
             enabled={voice.enabled}
@@ -179,7 +184,23 @@ export default function ScorePage() {
             proposed={result.proposed}
             recommended={result.recommended}
             improvement={result.improvement}
+            changeCount={changes.length}
             evaluatedOwnMaterials={spec.evaluateOwnMaterials}
+          />
+
+          <RecommendedChanges
+            changes={changes}
+            evaluatedOwnMaterials={spec.evaluateOwnMaterials}
+            onAdopt={() => {
+              // Writing the recommendation into the session re-scores it, so the
+              // page then shows it as the user's own specification.
+              update({
+                concrete: { ...result.recommended.concrete },
+                coverMm: result.recommended.nominal_cover_mm,
+                wallingMaterialId: result.recommended.walling_material_id,
+                evaluateOwnMaterials: true,
+              });
+            }}
           />
 
           <ServiceLifeComparison

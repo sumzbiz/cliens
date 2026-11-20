@@ -1,7 +1,7 @@
 /**
  * Display formatting, defined once so the same quantity never appears two ways.
  */
-import type { ScoreBand } from '@/types/api';
+import type { ScoreBand, ScoredSelection } from '@/types/api';
 
 /** Tailwind text colour for a score band. */
 export function bandTextClass(band: ScoreBand): string {
@@ -25,15 +25,29 @@ export function bandFillClass(band: ScoreBand): string {
   }[band];
 }
 
-/** One-line plain-language verdict for a band, addressed to the user. */
-export function bandVerdict(band: ScoreBand): string {
+/**
+ * One-line plain-language verdict on a scored specification.
+ *
+ * Compliance comes from the checks themselves, not from the score band. Worded
+ * from the band alone, a specification failing its cover check but scoring in the
+ * "adequate" band was told it "meets the code". The band only describes the
+ * margin once every check is met.
+ */
+export function complianceVerdict(scored: ScoredSelection, subject: string): string {
+  if (!scored.compliant) {
+    const unmet = scored.findings.filter((finding) => !finding.compliant).length;
+    const checks = `${String(unmet)} check${unmet === 1 ? '' : 's'}`;
+    return scored.band === 'poor'
+      ? `${subject} falls well short of the code for this site, on ${checks}.`
+      : `${subject} falls short of the code on ${checks}.`;
+  }
   return {
-    poor: 'Your specification falls well short of the code for this site.',
-    marginal: 'Your specification is below the code minimum in places.',
-    adequate: 'Your specification meets the code, with little margin.',
-    good: 'Your specification clears the code comfortably.',
-    excellent: 'Your specification is well ahead of the code minimum.',
-  }[band];
+    poor: `${subject} meets the code, with little margin.`,
+    marginal: `${subject} meets the code, with little margin.`,
+    adequate: `${subject} meets the code, with little margin.`,
+    good: `${subject} clears the code comfortably.`,
+    excellent: `${subject} is well ahead of the code minimum.`,
+  }[scored.band];
 }
 
 /** Format a 0-100 score for display. */

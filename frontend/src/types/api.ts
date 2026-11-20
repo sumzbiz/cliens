@@ -68,6 +68,25 @@ export const CEMENT_TYPES = [
   { value: 'PSC', label: 'PSC — Portland Slag' },
 ] as const;
 
+/**
+ * Admixtures the rules give credit for, by the exact names the backend matches on
+ * (`ADMIXTURE_FEATURES` in app/ml/quality_score.py). The form had no way to choose
+ * them, so a recommendation that added one always looked better than any
+ * specification a user could enter.
+ */
+export const ADMIXTURES = [
+  {
+    value: 'corrosion inhibitor',
+    label: 'Corrosion inhibitor',
+    hint: 'Protects the steel from chlorides. Advised near the coast.',
+  },
+  {
+    value: 'waterproofing admixture',
+    label: 'Waterproofing admixture',
+    hint: 'Lowers water absorption. Advised where it rains often.',
+  },
+] as const;
+
 /** Walling materials in the reference tables. */
 export const WALLING_MATERIALS = [
   { value: 'burnt_clay_brick', label: 'Burnt clay (red) brick' },
