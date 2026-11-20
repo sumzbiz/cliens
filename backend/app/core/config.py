@@ -81,6 +81,14 @@ class Settings(BaseSettings):
     earth_engine_project_id: str | None = None
     earth_engine_service_account_email: str | None = None
     earth_engine_service_account_file: Path | None = None
+    # On Cloud Run the service's own identity authenticates to Earth Engine through
+    # application-default credentials, so no key file has to exist in the cloud.
+    earth_engine_use_application_default: bool = False
+
+    # --- Google Cloud ------------------------------------------------------
+    # Set on Cloud Run by Terraform. Enables the Cloud Logging field names, so log
+    # lines carry a severity and group under their request's trace.
+    google_cloud_project: str | None = None
 
     # --- IMD ---------------------------------------------------------------
     imd_api_base_url: str = "https://api.imd.gov.in"
@@ -151,13 +159,15 @@ class Settings(BaseSettings):
     def earth_engine_configured(self) -> bool:
         """Whether Earth Engine can authenticate.
 
-        All three values are required: Earth Engine authenticates as a service
-        account within a specific registered Cloud project.
+        A registered Cloud project, plus either a service account key (email and
+        file, for local development) or application-default credentials (on Cloud
+        Run, where the service's own identity is registered with Earth Engine).
         """
-        return bool(
-            self.earth_engine_project_id
-            and self.earth_engine_service_account_email
-            and self.earth_engine_service_account_file
+        key_file_auth = bool(
+            self.earth_engine_service_account_email and self.earth_engine_service_account_file
+        )
+        return bool(self.earth_engine_project_id) and (
+            key_file_auth or self.earth_engine_use_application_default
         )
 
     @computed_field  # type: ignore[prop-decorator]
@@ -177,6 +187,7 @@ class Settings(BaseSettings):
         "earth_engine_project_id",
         "earth_engine_service_account_email",
         "earth_engine_service_account_file",
+        "google_cloud_project",
         mode="before",
     )
     @classmethod

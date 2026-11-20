@@ -9,6 +9,8 @@ credentials/
 # catches any file whose name is a GCP project id followed by a key fingerprint.
 [a-z]*-[0-9]*-[0-9a-f]*.json
 gcp-key*.json
+service_account*.json
+config/service_account.json
 
 # Python
 __pycache__/

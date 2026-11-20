@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import APIRouter, status
 
 from app.core import constants
-from app.routes.dependencies import ClimateServiceDep, ScoringServiceDep
+from app.routes.dependencies import ClimateServiceDep, ExplanationServiceDep, ScoringServiceDep
 from app.schemas.common import ErrorResponse
 from app.schemas.scoring import (
     AreaScoreRequest,
@@ -21,6 +21,7 @@ from app.schemas.scoring import (
     ComplianceFindingResponse,
     DistrictListResponse,
     ElementSituation,
+    ExplanationResponse,
     MaterialSelectionInput,
     MemberType,
     PinRequest,
@@ -159,6 +160,69 @@ async def create_area_score(request: AreaScoreRequest, service: ScoringServiceDe
     )
 
 
+EXPLAIN_ERRORS: dict[int | str, dict[str, Any]] = {
+    **SCORE_ERRORS,
+    status.HTTP_502_BAD_GATEWAY: {
+        "model": ErrorResponse,
+        "description": (
+            "Gemini failed, or its explanation cited a figure not in the assessment "
+            "and was discarded."
+        ),
+    },
+    status.HTTP_503_SERVICE_UNAVAILABLE: {
+        "model": ErrorResponse,
+        "description": "Explanations are not configured, or climate data is not loaded.",
+    },
+}
+
+
+@router.post(
+    "/explain",
+    response_model=ExplanationResponse,
+    summary="Explain a district score in plain language",
+    responses=EXPLAIN_ERRORS,
+)
+async def explain_score(
+    request: ScoreRequest, service: ExplanationServiceDep
+) -> ExplanationResponse:
+    """Explain the same comparison ``POST /score`` returns for this body."""
+    explanation = await service.explain_district(
+        district=request.district,
+        proposed=to_selection(request.materials, request.member, request.element_situation),
+        situation=request.element_situation,
+        member=request.member,
+    )
+    return ExplanationResponse(
+        summary=explanation.summary, points=explanation.points, model=explanation.model
+    )
+
+
+@router.post(
+    "/area/explain",
+    response_model=ExplanationResponse,
+    summary="Explain a drawn-area score in plain language",
+    responses=EXPLAIN_ERRORS,
+)
+async def explain_area_score(
+    request: AreaScoreRequest, service: ExplanationServiceDep
+) -> ExplanationResponse:
+    """Explain the same comparison ``POST /score/area`` returns for this body."""
+    explanation = await service.explain_area(
+        area=AreaBounds(
+            south=request.area.south,
+            north=request.area.north,
+            west=request.area.west,
+            east=request.area.east,
+        ),
+        proposed=to_selection(request.materials, request.member, request.element_situation),
+        situation=request.element_situation,
+        member=request.member,
+    )
+    return ExplanationResponse(
+        summary=explanation.summary, points=explanation.points, model=explanation.model
+    )
+
+
 def to_selection(
     materials: MaterialSelectionInput | None,
     member: MemberType,
@@ -256,6 +320,8 @@ def _to_response(
         district=comparison.district,
         climate=ClimateProfileResponse(
             district=climate.district,
+            grid_latitude=climate.grid_latitude,
+            grid_longitude=climate.grid_longitude,
             distance_to_coast_km=climate.distance_to_coast_km,
             mean_relative_humidity_percent=climate.mean_relative_humidity_percent,
             mean_max_temperature_c=climate.mean_max_temperature_c,

@@ -146,6 +146,28 @@ EARTH_ENGINE_BAND_RELATIVE_HUMIDITY: Final[str] = "hurs"  # percent
 # site sits in rather than averaging neighbouring cells.
 EARTH_ENGINE_SAMPLE_RADIUS_M: Final[float] = 1_000.0
 
+# CODIFIED. NEX-GDDP-CMIP6's native grid is 0.25 degrees, about 27.8 km at the
+# equator; reducing at that scale reads the dataset's own cell, not a resample.
+EARTH_ENGINE_SCALE_M: Final[float] = 27_830.0
+
+# CALIBRATED. The two decades a climate outlook compares: the first decade of the
+# 30-year home-loan window (HORIZON_START_YEAR onward) and its last decade. Inclusive.
+PROJECTION_BASELINE_YEARS: Final[tuple[int, int]] = (2025, 2034)
+PROJECTION_FUTURE_YEARS: Final[tuple[int, int]] = (2046, 2055)
+
+# CALIBRATED. Outlook requests are cached on the site rounded to 0.01 degrees,
+# about 1.1 km: forty times finer than the 27.8 km grid, so rounding never merges
+# two cells, while nearby clicks reuse one Earth Engine computation.
+PROJECTION_COORDINATE_PRECISION_DP: Final[int] = 2
+PROJECTION_CACHE_ENTRIES: Final[int] = 512
+
+# CODIFIED. OAuth scopes Earth Engine accepts when authenticating with Application
+# Default Credentials (Cloud Run's attached service account, or a developer login).
+EARTH_ENGINE_OAUTH_SCOPES: Final[tuple[str, ...]] = (
+    "https://www.googleapis.com/auth/earthengine",
+    "https://www.googleapis.com/auth/cloud-platform",
+)
+
 # ---------------------------------------------------------------------------
 # External data caching
 # ---------------------------------------------------------------------------
@@ -168,6 +190,24 @@ GEMINI_TIMEOUT_SECONDS: Final[float] = 30.0
 # CALIBRATED. The prompt caps the report at 400 words; this token ceiling leaves
 # comfortable headroom above that while bounding cost and latency.
 GEMINI_MAX_OUTPUT_TOKENS: Final[int] = 1_200
+
+# CODIFIED. Gemini API generateContent endpoint; the model name is configuration.
+GEMINI_GENERATE_URL: Final[str] = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
+)
+
+# CALIBRATED. Temperature 0: an explanation of a compliance result should read the
+# same every time it is asked for, not vary from call to call.
+GEMINI_TEMPERATURE: Final[float] = 0.0
+
+# CALIBRATED. A number in a generated explanation counts as traced to the assessment
+# if it is within this of a figure the engine computed — enough for one rounding
+# step at one decimal place (60.0 written as 60), and no more.
+EXPLANATION_NUMBER_TOLERANCE: Final[float] = 0.051
+
+# CALIBRATED. Explanations cached in-process by their input, so asking twice costs
+# one call and returns the identical text.
+EXPLANATION_CACHE_ENTRIES: Final[int] = 256
 EXTERNAL_MAX_RETRY_ATTEMPTS: Final[int] = 3
 EXTERNAL_RETRY_INITIAL_BACKOFF_SECONDS: Final[float] = 0.5
 EXTERNAL_RETRY_MAX_BACKOFF_SECONDS: Final[float] = 8.0

@@ -24,18 +24,31 @@ from app.core.constants import validate_constants
 from app.core.database import dispose_database, init_database
 from app.core.exceptions import AppError, RateLimitExceededError
 from app.core.logging import (
+    CLOUD_TRACE_HEADER,
     REQUEST_ID_HEADER,
     configure_logging,
     get_logger,
     get_request_id,
     new_request_id,
     reset_request_id,
+    reset_trace_id,
     set_request_id,
+    set_trace_id,
 )
 from app.core.rate_limit import FixedWindowRateLimiter
 from app.external.http import close_client as close_http_client
 from app.ml.registry import try_load_registry
-from app.routes import basemap, health, materials, reports, scoring, sites, voice
+from app.routes import (
+    basemap,
+    climate,
+    health,
+    integrations,
+    materials,
+    reports,
+    scoring,
+    sites,
+    voice,
+)
 from app.schemas.common import ErrorResponse
 
 logger = get_logger(__name__)
@@ -79,6 +92,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
         incoming = request.headers.get(REQUEST_ID_HEADER)
         request_id = incoming if incoming else new_request_id()
         token = set_request_id(request_id)
+        trace_token = set_trace_id(request.headers.get(CLOUD_TRACE_HEADER))
         started = time.perf_counter()
 
         logger.info(
@@ -111,6 +125,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
             )
             return response
         finally:
+            reset_trace_id(trace_token)
             reset_request_id(token)
 
 
@@ -361,6 +376,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(basemap.router, prefix=API_PREFIX)
     app.include_router(voice.router, prefix=API_PREFIX)
     app.include_router(sites.router, prefix=API_PREFIX)
+    app.include_router(climate.router, prefix=API_PREFIX)
+    app.include_router(integrations.router, prefix=API_PREFIX)
 
     return app
 

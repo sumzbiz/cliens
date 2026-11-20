@@ -193,6 +193,10 @@ class ClimateProfileResponse(SchemaBase):
     """The measured climate a score was based on."""
 
     district: str
+    grid_latitude: float = Field(
+        description="Latitude of the climate cell scored (the area's centre for a drawn site)."
+    )
+    grid_longitude: float = Field(description="Longitude of the climate cell scored.")
     distance_to_coast_km: float
     mean_relative_humidity_percent: float
     mean_max_temperature_c: float
@@ -375,3 +379,18 @@ class DistrictListResponse(SchemaBase):
     observation_start: str
     observation_end: str
     source: str
+
+
+class ExplanationResponse(SchemaBase):
+    """A plain-language explanation of a score, checked against the assessment."""
+
+    summary: str
+    points: tuple[str, ...]
+    model: str = Field(description="The Gemini model that wrote the text.")
+    verified: bool = Field(
+        default=True,
+        description=(
+            "Always true: every number in the text was matched to a figure the rules "
+            "engine computed. An explanation that fails the check is never returned."
+        ),
+    )

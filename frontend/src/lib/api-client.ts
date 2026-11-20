@@ -8,8 +8,11 @@
 import type {
   AreaBounds,
   BasemapCapabilities,
+  ClimateProjection,
   DistrictList,
+  Explanation,
   GeocodeResults,
+  Integrations,
   MaterialSelectionInput,
   MemberType,
   PinResolution,
@@ -240,6 +243,53 @@ export const apiClient = {
         member,
       }),
     });
+  },
+
+  /** Which optional Google integrations the server has credentials for. */
+  getIntegrations(): Promise<Integrations> {
+    return request<Integrations>('/integrations');
+  },
+
+  /**
+   * A plain-language explanation of the same comparison `score` returns.
+   *
+   * Written by Gemini from the engine's figures only; the server discards any
+   * explanation citing a number the engine did not compute.
+   */
+  explain(
+    district: string,
+    materials: MaterialSelectionInput | null,
+    situation: MaterialSelectionInput['element_situation'],
+    member: MemberType
+  ): Promise<Explanation> {
+    return request<Explanation>('/score/explain', {
+      method: 'POST',
+      body: JSON.stringify({ district, materials, element_situation: situation, member }),
+    });
+  },
+
+  /** The same explanation for a drawn outline. */
+  explainArea(
+    area: AreaBounds,
+    materials: MaterialSelectionInput | null,
+    situation: MaterialSelectionInput['element_situation'],
+    member: MemberType
+  ): Promise<Explanation> {
+    return request<Explanation>('/score/area/explain', {
+      method: 'POST',
+      body: JSON.stringify({ area, materials, element_situation: situation, member }),
+    });
+  },
+
+  /**
+   * Mid-century climate outlook at a point (NASA NEX-GDDP-CMIP6 via Earth Engine).
+   *
+   * Context beside the score, not an input to it. The first request for a place
+   * can take half a minute; repeats are cached on the server.
+   */
+  getClimateProjection(latitude: number, longitude: number): Promise<ClimateProjection> {
+    const query = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude) });
+    return request<ClimateProjection>(`/climate/projection?${query.toString()}`);
   },
 
   /**
