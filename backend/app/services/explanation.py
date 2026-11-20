@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.core import constants
-from app.core.exceptions import ExternalServiceError
+from app.core.exceptions import ExternalServiceError, ExternalServiceUnconfiguredError
 from app.core.logging import get_logger
 from app.external import gemini
 from app.services.area_climate import AreaBounds
@@ -68,11 +68,17 @@ _CACHE: OrderedDict[str, Explanation] = OrderedDict()
 class ExplanationService:
     """Scores a specification, then has Gemini explain the result."""
 
-    def __init__(self, *, scoring: QualityScoringService, api_key: str | None, model: str) -> None:
-        """Bind the service to the scoring engine and the Gemini configuration."""
+    def __init__(
+        self, *, scoring: QualityScoringService, api_key: str | None, models: tuple[str, ...]
+    ) -> None:
+        """Bind the service to the scoring engine and the Gemini configuration.
+
+        Args:
+            models: Tried in order; the next is used only when one is unavailable.
+        """
         self._scoring = scoring
         self._api_key = api_key
-        self._model = model
+        self._models = models
 
     async def explain_district(
         self,
@@ -118,27 +124,62 @@ class ExplanationService:
         """
         facts = assessment_facts(comparison, situation=situation, member=member)
         encoded = json.dumps(facts, sort_keys=True)
-        key = hashlib.sha256(f"{self._model}\n{encoded}".encode()).hexdigest()
+        key = hashlib.sha256(f"{','.join(self._models)}\n{encoded}".encode()).hexdigest()
         cached = _CACHE.get(key)
         if cached is not None:
             _CACHE.move_to_end(key)
             return cached
 
-        reply = await gemini.generate_json(
-            api_key=self._api_key,
-            model=self._model,
-            prompt=PROMPT.format(facts=json.dumps(facts, indent=2)),
-            response_schema=RESPONSE_SCHEMA,
-        )
-        explanation = _verified(reply, facts, model=self._model)
+        model, reply = await self._generate(PROMPT.format(facts=json.dumps(facts, indent=2)))
+        explanation = _verified(reply, facts, model=model)
 
         _CACHE[key] = explanation
         while len(_CACHE) > constants.EXPLANATION_CACHE_ENTRIES:
             _CACHE.popitem(last=False)
         logger.info(
-            "explanation_generated", district=comparison.district, points=len(explanation.points)
+            "explanation_generated",
+            district=comparison.district,
+            model=model,
+            points=len(explanation.points),
         )
         return explanation
+
+    async def _generate(self, prompt: str) -> tuple[str, dict[str, Any]]:
+        """Ask each model in turn until one answers; return which one did.
+
+        Only availability failures move on to the next model: overload, timeouts,
+        an unreachable or retired model. A missing key fails at once, and so does
+        a reply that later fails the number check, since that is a correctness
+        signal, not an outage.
+
+        Raises:
+            ExternalServiceUnconfiguredError: If no API key is configured.
+            ExternalServiceError: If every model is unavailable.
+        """
+        failures: list[str] = []
+        for model in self._models:
+            try:
+                reply = await gemini.generate_json(
+                    api_key=self._api_key,
+                    model=model,
+                    prompt=prompt,
+                    response_schema=RESPONSE_SCHEMA,
+                )
+            except ExternalServiceUnconfiguredError:
+                raise
+            except ExternalServiceError as error:
+                logger.warning("gemini_model_unavailable", model=model, reason=error.message)
+                failures.append(model)
+                continue
+            if failures:
+                logger.info("gemini_fallback_used", model=model, unavailable=failures)
+            return model, reply
+        raise ExternalServiceError(
+            "Plain-language explanations are unavailable right now: Google's Gemini "
+            "service is overloaded. Your score above is unaffected; try again in a minute.",
+            service="gemini",
+            details={"models_tried": failures},
+        )
 
 
 def assessment_facts(

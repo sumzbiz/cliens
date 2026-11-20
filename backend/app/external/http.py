@@ -95,6 +95,7 @@ async def request_json(
     params: dict[str, str | int | float] | None = None,
     json_body: dict[str, Any] | None = None,
     headers: dict[str, str] | None = None,
+    max_attempts: int = constants.EXTERNAL_MAX_RETRY_ATTEMPTS,
 ) -> dict[str, Any]:
     """Perform an HTTP request and return the decoded JSON object.
 
@@ -110,6 +111,8 @@ async def request_json(
         params: Query string parameters.
         json_body: Request body, encoded as JSON.
         headers: Additional headers, merged over the defaults.
+        max_attempts: Attempts before giving up. A caller with its own fallback
+            (Gemini tries another model) uses fewer, so the total stays bounded.
 
     Returns:
         The decoded JSON object.
@@ -124,7 +127,7 @@ async def request_json(
 
     try:
         async for attempt in AsyncRetrying(
-            stop=stop_after_attempt(constants.EXTERNAL_MAX_RETRY_ATTEMPTS),
+            stop=stop_after_attempt(max_attempts),
             wait=wait_exponential(
                 multiplier=constants.EXTERNAL_RETRY_INITIAL_BACKOFF_SECONDS,
                 max=constants.EXTERNAL_RETRY_MAX_BACKOFF_SECONDS,

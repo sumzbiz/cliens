@@ -175,3 +175,12 @@ class TestIsProduction:
     def test_reports_the_environment(self, environment: str, expected: bool) -> None:
         settings = build_settings(environment=environment, cors_allowed_origins="http://a.test")
         assert settings.is_production is expected
+
+
+class TestGeminiModels:
+    """The primary model comes first, then each fallback once."""
+
+    def test_primary_then_fallbacks_without_repeats(self) -> None:
+        settings = Settings(gemini_model="a", gemini_fallback_models=" b, a ,, c ", _env_file=None)
+
+        assert settings.gemini_models == ("a", "b", "c")

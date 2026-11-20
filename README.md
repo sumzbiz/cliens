@@ -435,7 +435,7 @@ them differently).
 new place takes up to about a minute (43 s measured, plus ~7 s on a fresh instance); repeats within ~1 km are served from cache. It is context
 only and never changes the score.
 
-**Explanations depend on Gemini being up.** When Gemini fails, or writes a figure
+**Explanations depend on Gemini being up.** An overloaded model hands over to the next in `GEMINI_FALLBACK_MODELS` (the panel names the model that wrote the text). When every model fails, or one writes a figure
 the engine did not compute, the explanation is refused with an error rather than
 shown; the score and every finding are unaffected.
 

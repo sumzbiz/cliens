@@ -57,6 +57,7 @@ async def generate_json(
         timeout_seconds=constants.GEMINI_TIMEOUT_SECONDS,
         json_body=body,
         headers={"x-goog-api-key": api_key},
+        max_attempts=constants.GEMINI_ATTEMPTS_PER_MODEL,
     )
     return _parse(payload)
 

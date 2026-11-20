@@ -114,7 +114,7 @@ def get_explanation_service(
 ) -> ExplanationService:
     """Provide the explanation service, bound to the scoring engine and Gemini settings."""
     return ExplanationService(
-        scoring=scoring, api_key=settings.gemini_api_key, model=settings.gemini_model
+        scoring=scoring, api_key=settings.gemini_api_key, models=settings.gemini_models
     )
 
 

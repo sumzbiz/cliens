@@ -7,7 +7,11 @@ from typing import Any
 
 import pytest
 
-from app.core.exceptions import ExternalServiceError
+from app.core.exceptions import (
+    ExternalServiceError,
+    ExternalServiceTimeoutError,
+    ExternalServiceUnconfiguredError,
+)
 from app.external import gemini
 from app.routes.dependencies import get_scoring_service
 from app.services import explanation
@@ -50,7 +54,7 @@ def _install(monkeypatch: pytest.MonkeyPatch, reply: dict[str, Any]) -> FakeGemi
 
 def _service() -> ExplanationService:
     return ExplanationService(
-        scoring=get_scoring_service(ClimateDataService()), api_key="key", model="m"
+        scoring=get_scoring_service(ClimateDataService()), api_key="key", models=("m",)
     )
 
 
@@ -131,3 +135,95 @@ class TestScoreScale:
         result = await _explain(_service())
 
         assert "out of 100" in result.summary
+
+
+class ChainGemini:
+    """Each model either raises a given error or returns the reply."""
+
+    def __init__(self, outcomes: dict[str, Exception | dict[str, Any]]) -> None:
+        self.outcomes = outcomes
+        self.models: list[str] = []
+
+    async def __call__(self, **kwargs: object) -> dict[str, Any]:
+        model = str(kwargs["model"])
+        self.models.append(model)
+        outcome = self.outcomes[model]
+        if isinstance(outcome, Exception):
+            raise outcome
+        return outcome
+
+
+def _chain_service() -> ExplanationService:
+    return ExplanationService(
+        scoring=get_scoring_service(ClimateDataService()),
+        api_key="key",
+        models=("primary", "fallback"),
+    )
+
+
+OK_REPLY: dict[str, Any] = {"summary": "Short of the code.", "points": []}
+
+
+class TestModelFallback:
+    """An unavailable model hands over to the next; a correctness failure does not."""
+
+    async def test_an_overloaded_model_falls_back(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        chain = ChainGemini(
+            {
+                "primary": ExternalServiceTimeoutError("busy", service="gemini"),
+                "fallback": OK_REPLY,
+            }
+        )
+        monkeypatch.setattr(gemini, "generate_json", chain)
+
+        result = await _explain(_chain_service())
+
+        assert result.model == "fallback"
+        assert chain.models == ["primary", "fallback"]
+
+    async def test_the_primary_is_used_when_it_answers(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        chain = ChainGemini({"primary": OK_REPLY, "fallback": OK_REPLY})
+        monkeypatch.setattr(gemini, "generate_json", chain)
+
+        result = await _explain(_chain_service())
+
+        assert result.model == "primary"
+        assert chain.models == ["primary"]
+
+    async def test_every_model_down_is_one_clear_error(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        down = ExternalServiceError("503", service="gemini")
+        monkeypatch.setattr(
+            gemini, "generate_json", ChainGemini({"primary": down, "fallback": down})
+        )
+
+        with pytest.raises(ExternalServiceError) as caught:
+            await _explain(_chain_service())
+
+        assert caught.value.details["models_tried"] == ["primary", "fallback"]
+        assert "score above is unaffected" in caught.value.message
+
+    async def test_a_missing_key_does_not_fall_back(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        chain = ChainGemini(
+            {"primary": ExternalServiceUnconfiguredError("no key", service="gemini")}
+        )
+        monkeypatch.setattr(gemini, "generate_json", chain)
+
+        with pytest.raises(ExternalServiceUnconfiguredError):
+            await _explain(_chain_service())
+        assert chain.models == ["primary"]
+
+    async def test_an_untraced_figure_is_not_retried_elsewhere(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        invented = {"summary": "This lasts 137 years.", "points": []}
+        chain = ChainGemini({"primary": invented, "fallback": OK_REPLY})
+        monkeypatch.setattr(gemini, "generate_json", chain)
+
+        with pytest.raises(ExternalServiceError) as caught:
+            await _explain(_chain_service())
+        assert caught.value.details["untraced_numbers"] == [137.0]
+        assert chain.models == ["primary"]
