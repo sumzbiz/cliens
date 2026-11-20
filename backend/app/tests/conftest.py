@@ -35,6 +35,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.database import Base, Database, dispose_database, init_database
 from app.core.rate_limit import FixedWindowRateLimiter
+from app.external import basemap
 from app.external.http import close_client as close_http_client
 from app.main import create_app
 from app.ml.registry import load_registry, reset_registry
@@ -123,6 +124,17 @@ def reset_settings_cache() -> Iterator[None]:
     """Clear the settings singleton so one test's overrides cannot leak."""
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def reset_mapbox_health() -> Iterator[None]:
+    """Forget the process-wide Mapbox verdict around every test.
+
+    A mocked rejection in one test would otherwise make the next test skip Mapbox.
+    """
+    basemap.reset_mapbox_health()
+    yield
+    basemap.reset_mapbox_health()
 
 
 @pytest.fixture(autouse=True)

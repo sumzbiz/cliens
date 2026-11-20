@@ -536,6 +536,16 @@ MAX_TILE_ZOOM_MAPBOX: Final[int] = 22
 # this, but the path parameter needs one fixed bound to validate against.
 MAX_TILE_ZOOM: Final[int] = MAX_TILE_ZOOM_MAPBOX
 
+# Statuses with which Mapbox rejects the token or the account itself — revoked or
+# URL-restricted token (401/403), account blocked or free tier exhausted (429) —
+# as opposed to one tile missing from coverage (404).
+MAPBOX_REJECTION_STATUSES: Final[frozenset[int]] = frozenset({401, 403, 429})
+
+# CALIBRATED. How long a Mapbox verdict, usable or rejected, is trusted before the
+# token is probed again: long enough not to hammer a blocked account, short enough
+# that fixing the account takes effect within minutes without a restart.
+MAPBOX_HEALTH_RECHECK_SECONDS: Final[float] = 600.0
+
 # How long a composited tile stays in the process cache. Satellite basemaps change
 # on a scale of months, so this is about avoiding a repeat round trip while panning,
 # not about freshness.

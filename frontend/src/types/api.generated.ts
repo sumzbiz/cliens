@@ -279,8 +279,9 @@ export interface paths {
          * @description Report the real zoom ceiling and the attribution that must be shown.
          *
          *     The client cannot hardcode either. Both change with which providers are
-         *     configured, and a client that assumed the deeper limit would let the user zoom
-         *     into blank tiles while crediting the wrong source.
+         *     working — a configured Mapbox token can still be rejected for the whole
+         *     account — and a client that assumed the deeper limit would let the user zoom
+         *     into placeholder tiles while crediting the wrong source.
          */
         get: operations["get_basemap_capabilities_api_basemap_get"];
         put?: never;
