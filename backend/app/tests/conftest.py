@@ -10,7 +10,8 @@ Two rules govern everything here:
 
 The schema is built once per session by running the real Alembic migrations against
 the disposable ``test-db`` container, so the migrations themselves are exercised on
-every test run rather than assumed correct.
+every test run that touches the database rather than assumed correct. Pure unit
+tests never request a database, so they run without the container.
 
 Async fixtures are function-scoped throughout. A session-scoped engine would be
 bound to the event loop that created it, and asyncpg fails when a connection is
@@ -70,12 +71,16 @@ def settings() -> Settings:
     )
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def migrated_schema(settings: Settings) -> Iterator[None]:
     """Build the test schema by running the real migrations, then tear it down.
 
     Running Alembic rather than ``metadata.create_all`` means a migration that is
     wrong or missing fails the suite, which is the point of keeping them reviewable.
+
+    Requested by ``database`` rather than autouse. As autouse it forced every test,
+    including pure arithmetic, to connect to PostGIS, so without the container
+    each one stalled on a connection timeout and errored instead of running.
     """
     config = AlembicConfig(str(ALEMBIC_INI))
     # env.py honours a URL already set on the config, so this redirects the
@@ -88,7 +93,7 @@ def migrated_schema(settings: Settings) -> Iterator[None]:
 
 
 @pytest.fixture
-async def database(settings: Settings) -> AsyncIterator[Database]:
+async def database(settings: Settings, migrated_schema: None) -> AsyncIterator[Database]:
     """A database bound to the test database, truncated and disposed afterwards."""
     instance = init_database(settings)
     try:
