@@ -37,3 +37,13 @@ output "logs_dataset" {
   description = "BigQuery dataset holding exported request logs."
   value       = google_bigquery_dataset.logs.dataset_id
 }
+
+output "custom_domain_ip" {
+  description = "Point an A record for var.custom_domain at this address."
+  value       = local.domain_enabled ? google_compute_global_address.web[0].address : null
+}
+
+output "custom_domain_url" {
+  description = "The app on its custom domain, once DNS resolves and the certificate is active."
+  value       = local.domain_enabled ? "https://${var.custom_domain}" : null
+}

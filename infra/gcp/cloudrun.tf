@@ -25,7 +25,7 @@ locals {
   api_plain_env = {
     ENVIRONMENT                          = "production"
     LOG_LEVEL                            = "INFO"
-    CORS_ALLOWED_ORIGINS                 = local.web_origin
+    CORS_ALLOWED_ORIGINS                 = join(",", compact([local.web_origin, var.custom_domain == "" ? "" : "https://${var.custom_domain}"]))
     FORWARDED_ALLOW_IPS                  = "*"
     GOOGLE_CLOUD_PROJECT                 = var.project_id
     EARTH_ENGINE_PROJECT_ID              = var.project_id
