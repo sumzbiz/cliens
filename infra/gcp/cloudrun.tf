@@ -31,6 +31,7 @@ locals {
     EARTH_ENGINE_PROJECT_ID              = var.project_id
     EARTH_ENGINE_USE_APPLICATION_DEFAULT = "true"
     GEMINI_MODEL                         = var.gemini_model
+    GEMINI_FALLBACK_MODELS               = var.gemini_fallback_models
   }
 
   api_secret_env = merge(

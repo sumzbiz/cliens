@@ -192,7 +192,14 @@ EXTERNAL_REQUEST_TIMEOUT_SECONDS: Final[float] = 10.0
 # authenticate on a fresh instance; 90 s leaves headroom. The frontend proxy
 # (deploy/gcp/web/Caddyfile) and the Cloud Run request timeout sit above this.
 EARTH_ENGINE_TIMEOUT_SECONDS: Final[float] = 90.0
-GEMINI_TIMEOUT_SECONDS: Final[float] = 30.0
+# Per attempt. A complete explanation normally returns in a few seconds; an
+# overloaded model either answers 503 at once or hangs, and waiting longer on a
+# hang only delays the fallback model that would answer.
+GEMINI_TIMEOUT_SECONDS: Final[float] = 20.0
+# CALIBRATED. Attempts per model before moving to the next in the fallback chain:
+# one quick retry absorbs a momentary 503. Worst case for a two-model chain is
+# 2 x 2 x 20 s plus backoff, about 81 s — under the frontend proxy's 110 s.
+GEMINI_ATTEMPTS_PER_MODEL: Final[int] = 2
 # CALIBRATED. The prompt caps the report at 400 words; this token ceiling leaves
 # comfortable headroom above that while bounding cost and latency.
 GEMINI_MAX_OUTPUT_TOKENS: Final[int] = 1_200

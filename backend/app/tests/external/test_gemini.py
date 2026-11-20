@@ -83,3 +83,15 @@ class TestGenerateJson:
 
         with pytest.raises(ExternalServiceError):
             await _generate()
+
+
+class TestAttempts:
+    """Gemini gets a short retry budget: the explanation service falls back instead."""
+
+    @respx.mock
+    async def test_gives_up_after_the_per_model_attempts(self) -> None:
+        route = respx.post(URL).mock(return_value=httpx.Response(503, json={}))
+
+        with pytest.raises(ExternalServiceError):
+            await _generate()
+        assert route.call_count == constants.GEMINI_ATTEMPTS_PER_MODEL

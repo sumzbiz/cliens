@@ -76,6 +76,10 @@ class Settings(BaseSettings):
     gemini_api_key: str | None = None
     # gemini-2.0-flash was retired on 1 June 2026; the API now answers 404 for it.
     gemini_model: str = "gemini-3.8-flash"
+    # Comma-separated models tried in order when gemini_model is unavailable
+    # (overloaded, timing out, or retired). Each explanation names the model that
+    # wrote it, and every model's text passes the same number check.
+    gemini_fallback_models: str = "gemini-3.5-flash-lite"
 
     # --- Earth Engine ------------------------------------------------------
     earth_engine_project_id: str | None = None
@@ -147,6 +151,12 @@ class Settings(BaseSettings):
         than let the user zoom into blank tiles.
         """
         return bool(self.mapbox_access_token)
+
+    @property
+    def gemini_models(self) -> tuple[str, ...]:
+        """The primary model, then each fallback once, in order."""
+        fallbacks = (name.strip() for name in self.gemini_fallback_models.split(","))
+        return tuple(dict.fromkeys([self.gemini_model, *(name for name in fallbacks if name)]))
 
     @computed_field  # type: ignore[prop-decorator]
     @property

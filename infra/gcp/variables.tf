@@ -74,6 +74,12 @@ variable "gemini_model" {
   default     = "gemini-3.8-flash"
 }
 
+variable "gemini_fallback_models" {
+  description = "Comma-separated Gemini models tried in order when gemini_model is overloaded or unavailable."
+  type        = string
+  default     = "gemini-3.5-flash-lite"
+}
+
 variable "optional_secrets" {
   description = <<-EOT
     API keys the app can use when present. Terraform creates an empty Secret
