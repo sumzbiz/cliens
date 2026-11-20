@@ -43,13 +43,17 @@ tf_vars() {
     "-var=populated_secrets=$(populated_secrets_json)"
 }
 
-# Read one key from the .env file without echoing it: strips CR, surrounding
-# quotes, and nothing else.
+# Read one key from the .env file without echoing it, the way python-dotenv (and
+# so the app) reads it: whitespace around the key, the `=` and the value is
+# dropped, then one pair of surrounding quotes. A space left after `=` once
+# reached Secret Manager and made every API key an illegal HTTP header value.
 env_value() {
   local line
-  line="$(grep -E "^${1}=" "$ENV_FILE" | tail -n 1 || true)"
+  line="$(grep -E "^[[:space:]]*${1}[[:space:]]*=" "$ENV_FILE" | tail -n 1 || true)"
   line="${line#*=}"
-  line="${line%$'\r'}"
+  line="${line//$'\r'/}"
+  line="${line#"${line%%[![:space:]]*}"}"
+  line="${line%"${line##*[![:space:]]}"}"
   line="${line%\"}"; line="${line#\"}"
   line="${line%\'}"; line="${line#\'}"
   printf '%s' "$line"
