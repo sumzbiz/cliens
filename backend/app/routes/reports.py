@@ -22,9 +22,13 @@ REPORT_ERRORS: dict[int | str, dict[str, Any]] = {
         "model": ErrorResponse,
         "description": "The request did not match the expected shape.",
     },
+    status.HTTP_404_NOT_FOUND: {
+        "model": ErrorResponse,
+        "description": "The district, point or area is outside the measured climate coverage.",
+    },
     status.HTTP_503_SERVICE_UNAVAILABLE: {
         "model": ErrorResponse,
-        "description": "No measured climate profile for that district, or models not trained.",
+        "description": "Climate profiles or models are not loaded on the server.",
     },
 }
 

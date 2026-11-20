@@ -75,6 +75,17 @@ class ResourceNotFoundError(AppError):
     http_status = status.HTTP_404_NOT_FOUND
 
 
+class LocationNotCoveredError(ResourceNotFoundError):
+    """The requested district, point or area lies outside the measured climate.
+
+    A client-side condition — the user asked about a place we hold no data for — so
+    it is a 404, distinct from the 503 for climate data that failed to load at all.
+    Reporting it as 503 made a typo in a district name look like an outage.
+    """
+
+    code = "LOCATION_NOT_COVERED"
+
+
 class UnknownMaterialError(ValidationError):
     """A submitted material identifier is not in the catalogue.
 

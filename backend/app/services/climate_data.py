@@ -12,6 +12,7 @@ The rules engine takes a wetness *index* instead — see ``to_rules_summary``.
 from __future__ import annotations
 
 from app.core import constants
+from app.core.exceptions import LocationNotCoveredError
 from app.core.logging import get_logger
 from app.repositories.district_profiles import (
     ClimateProfileSet,
@@ -92,7 +93,7 @@ class ClimateDataService:
         and a score describing somewhere thousands of kilometres away.
 
         Raises:
-            ClimateProfileUnavailableError: If the nearest grid node is further than
+            LocationNotCoveredError: If the nearest grid node is further than
                 ``MAX_PIN_TO_GRID_DISTANCE_KM``, or no profiles are loaded.
         """
         profile, distance_km = self._profiles.nearest(latitude, longitude)
@@ -105,7 +106,7 @@ class ClimateDataService:
                 nearest_district=profile.district,
                 distance_km=round(distance_km, 1),
             )
-            raise ClimateProfileUnavailableError(
+            raise LocationNotCoveredError(
                 "There is no measured climate for that point. The nearest place we "
                 f"hold data for is {profile.district}, {distance_km:,.0f} km away. "
                 "Pick somewhere inside the highlighted region."
@@ -134,7 +135,7 @@ class ClimateDataService:
         """Measured climate for one district.
 
         Raises:
-            ClimateProfileUnavailableError: If the district has no profile.
+            LocationNotCoveredError: If the district has no profile.
         """
         profile = self._profiles.get(district)
         logger.info("climate_profile_read", district=profile.district)

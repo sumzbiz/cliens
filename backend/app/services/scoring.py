@@ -172,7 +172,7 @@ class QualityScoringService:
             situation: How the element sits relative to the weather.
 
         Raises:
-            ClimateProfileUnavailableError: If the district has no profile.
+            LocationNotCoveredError: If the district has no profile.
         """
         return self.compare_profile(
             profile=self._climate.get_profile(district),
@@ -196,7 +196,7 @@ class QualityScoringService:
         indistinguishable downstream.
 
         Raises:
-            ClimateProfileUnavailableError: If no measured node is near enough.
+            LocationNotCoveredError: If no measured node is near enough.
         """
         area_climate = self._area.for_area(area)
         comparison = self.compare_profile(

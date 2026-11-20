@@ -120,7 +120,7 @@ export const apiClient = {
   /**
    * Resolve a point on the globe to the grid cell whose reading applies there.
    *
-   * Throws `CLIMATE_PROFILE_UNAVAILABLE` for a point outside the observed region.
+   * Throws `LOCATION_NOT_COVERED` (404) for a point outside the observed region.
    * That rejection is the feature, not an edge case: nearest-cell lookup would
    * otherwise answer a pin in the Atlantic with a confident inland district.
    */

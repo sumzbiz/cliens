@@ -1337,6 +1337,15 @@ export interface operations {
                     "application/json": components["schemas"]["PinResolutionResponse"];
                 };
             };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description The request did not match the expected shape. */
             422: {
                 headers: {
@@ -1346,7 +1355,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description No measured climate profile for that district, or models not trained. */
+            /** @description Climate profiles or models are not loaded on the server. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -1388,6 +1397,15 @@ export interface operations {
                     "application/json": components["schemas"]["ScoreResponse"];
                 };
             };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description The request did not match the expected shape. */
             422: {
                 headers: {
@@ -1397,7 +1415,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description No measured climate profile for that district, or models not trained. */
+            /** @description Climate profiles or models are not loaded on the server. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -1439,6 +1457,15 @@ export interface operations {
                     "application/json": components["schemas"]["ScoreResponse"];
                 };
             };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description The request did not match the expected shape. */
             422: {
                 headers: {
@@ -1448,7 +1475,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description No measured climate profile for that district, or models not trained. */
+            /** @description Climate profiles or models are not loaded on the server. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -1491,6 +1518,15 @@ export interface operations {
                     "application/pdf": unknown;
                 };
             };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description The request did not match the expected shape. */
             422: {
                 headers: {
@@ -1500,7 +1536,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description No measured climate profile for that district, or models not trained. */
+            /** @description Climate profiles or models are not loaded on the server. */
             503: {
                 headers: {
                     [name: string]: unknown;
@@ -1543,6 +1579,15 @@ export interface operations {
                     "application/pdf": unknown;
                 };
             };
+            /** @description The district, point or area is outside the measured climate coverage. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
             /** @description The request did not match the expected shape. */
             422: {
                 headers: {
@@ -1552,7 +1597,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description No measured climate profile for that district, or models not trained. */
+            /** @description Climate profiles or models are not loaded on the server. */
             503: {
                 headers: {
                     [name: string]: unknown;

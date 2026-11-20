@@ -11,10 +11,8 @@ from __future__ import annotations
 import pytest
 
 from app.core import constants
-from app.repositories.district_profiles import (
-    ClimateProfileUnavailableError,
-    load_climate_profiles,
-)
+from app.core.exceptions import LocationNotCoveredError
+from app.repositories.district_profiles import load_climate_profiles
 from app.services.area_climate import AreaBounds, AreaClimateService
 
 
@@ -151,7 +149,7 @@ class TestRefusal:
         east: float,
         where: str,
     ) -> None:
-        with pytest.raises(ClimateProfileUnavailableError) as error:
+        with pytest.raises(LocationNotCoveredError) as error:
             service.for_area(AreaBounds(south=south, north=north, west=west, east=east))
 
         # The refusal has to be actionable, so it names the nearest real data.
@@ -163,5 +161,5 @@ class TestRefusal:
         self, service: AreaClimateService
     ) -> None:
         """Guards against a longitude-only proximity check slipping back in."""
-        with pytest.raises(ClimateProfileUnavailableError):
+        with pytest.raises(LocationNotCoveredError):
             service.for_area(AreaBounds(south=28.5, north=28.7, west=77.1, east=77.3))

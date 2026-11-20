@@ -30,6 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core import calculations, constants
+from app.core.exceptions import LocationNotCoveredError
 from app.core.logging import get_logger
 from app.repositories.district_profiles import (
     ClimateProfileSet,
@@ -111,7 +112,7 @@ class AreaClimateService:
         """Climate for a drawn area.
 
         Raises:
-            ClimateProfileUnavailableError: If no measured node lies inside the area
+            LocationNotCoveredError: If no measured node lies inside the area
                 or within ``MAX_INTERPOLATION_DISTANCE_KM`` of its centre.
         """
         profiles = self._profiles.profiles
@@ -171,7 +172,7 @@ class AreaClimateService:
         """The nodes that may ground an interpolated value, and their weights.
 
         Raises:
-            ClimateProfileUnavailableError: If nothing is close enough to qualify.
+            LocationNotCoveredError: If nothing is close enough to qualify.
         """
         ranked = sorted(
             (
@@ -194,7 +195,7 @@ class AreaClimateService:
 
         if not within:
             nearest_distance, nearest_profile = ranked[0]
-            raise ClimateProfileUnavailableError(
+            raise LocationNotCoveredError(
                 "There is no measured climate near that area, and nothing close "
                 "enough to interpolate from. The nearest place we hold data for is "
                 f"{nearest_profile.district}, {nearest_distance:,.0f} km away. "

@@ -16,7 +16,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from app.core import calculations
-from app.core.exceptions import AppError
+from app.core.exceptions import AppError, LocationNotCoveredError
 
 PROFILES_PATH = Path(__file__).parent / "data" / "district_climate_profiles.json"
 
@@ -102,7 +102,7 @@ class ClimateProfileSet:
         """Look up one district, case-insensitively.
 
         Raises:
-            ClimateProfileUnavailableError: If the district has no profile. The
+            LocationNotCoveredError: If the district has no profile. The
                 error names the districts that do, because the usual cause is a
                 place outside the bundled grid.
         """
@@ -110,7 +110,7 @@ class ClimateProfileSet:
         for profile in self.profiles:
             if profile.district.casefold() == wanted:
                 return profile
-        raise ClimateProfileUnavailableError(
+        raise LocationNotCoveredError(
             f"No measured climate profile for {district!r}.",
             details={"available_districts": list(self.names())},
         )

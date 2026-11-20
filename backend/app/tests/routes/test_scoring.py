@@ -109,8 +109,8 @@ class TestResolvePin:
             "/api/score/resolve", json={"latitude": latitude, "longitude": longitude}
         )
 
-        assert response.status_code == 503, f"{where} should not be scoreable"
-        assert response.json()["error"]["code"] == "CLIMATE_PROFILE_UNAVAILABLE"
+        assert response.status_code == 404, f"{where} should not be scoreable"
+        assert response.json()["error"]["code"] == "LOCATION_NOT_COVERED"
 
     async def test_rejects_coordinates_outside_the_planet(self, client: AsyncClient) -> None:
         """Validation happens at the boundary, before any lookup runs."""
@@ -228,9 +228,10 @@ class TestValidation:
     ) -> None:
         response = await client.post("/api/score", json={"district": "Atlantis"})
 
-        assert response.status_code == 503
+        # A client error, not an outage: a typo must not look like a server fault.
+        assert response.status_code == 404
         error = response.json()["error"]
-        assert error["code"] == "CLIMATE_PROFILE_UNAVAILABLE"
+        assert error["code"] == "LOCATION_NOT_COVERED"
         assert "Coimbatore" in error["details"]["available_districts"]
 
     async def test_malformed_grade_is_rejected(self, client: AsyncClient) -> None:
@@ -339,4 +340,4 @@ class TestReportDownload:
     async def test_unknown_district_fails_before_rendering(self, client: AsyncClient) -> None:
         response = await client.post("/api/reports", json={"district": "Atlantis"})
 
-        assert response.status_code == 503
+        assert response.status_code == 404
