@@ -271,6 +271,8 @@ class TestAdviceNeverWorse:
             **STRONG_SPEC,
             "concrete": {**STRONG_SPEC["concrete"], "grade": "M45", "water_cement_ratio": 0.35},
             "nominal_cover_mm": 75,
+            # The best-scoring walling for Salem's humidity, so nothing is left to improve.
+            "walling_material_id": "aac_block",
         }
         response = await client.post("/api/score", json={"district": "Salem", "materials": over})
 

@@ -212,8 +212,12 @@ class TestRecommendationUpgradesTheUsersSpecification:
     def test_an_over_specified_mix_comes_back_unchanged(
         self, service: QualityScoringService
     ) -> None:
-        """It used to be "improved" from M45 at 60 mm to M30 at 45 mm."""
-        mine = spec("M45", 380.0, 0.35, 60.0)
+        """It used to be "improved" from M45 at 60 mm to M30 at 45 mm.
+
+        AAC block, because it is the best-scoring walling for this humid climate:
+        with fly ash brick the advice would rightly suggest AAC for a few points.
+        """
+        mine = spec("M45", 380.0, 0.35, 60.0, walling="aac_block")
 
         assert service.recommend(HUMID_INLAND, "exposed", "beam", base=mine) == mine
 
@@ -267,6 +271,51 @@ class TestRecommendationUpgradesTheUsersSpecification:
         advised = service.recommend(HUMID_INLAND, "exposed", "beam", base=mine)
 
         assert advised.walling_material_id != "burnt_clay_brick"
+
+    def test_both_swaps_are_kept_when_both_help(self, service: QualityScoringService) -> None:
+        """A coastal OPC + burnt clay spec needs both swaps; the second used to undo the first."""
+        coastal = ClimateSummary(
+            district="Coast",
+            mean_relative_humidity_percent=81.0,
+            wetness_index=0.1,
+            wet_dry_cycles_per_year=40.0,
+            max_wind_gust_ms=20.0,
+            mean_max_temperature_c=30.0,
+            distance_to_coast_km=0.0,
+        )
+        mine = spec("M20", 300.0, 0.62, 25.0, cement_type="OPC", walling="burnt_clay_brick")
+
+        advised = service.recommend(coastal, "exposed", "beam", base=mine)
+
+        assert advised.concrete.cement_type in {"PSC", "PPC"}
+        assert advised.walling_material_id != "burnt_clay_brick"
+
+    def test_advice_is_the_best_cement_and_walling_combination(
+        self, service: QualityScoringService
+    ) -> None:
+        """No other cement type and walling would score higher than the advice."""
+        coastal = ClimateSummary(
+            district="Coast",
+            mean_relative_humidity_percent=81.0,
+            wetness_index=0.4,
+            wet_dry_cycles_per_year=70.0,
+            max_wind_gust_ms=20.0,
+            mean_max_temperature_c=30.0,
+            distance_to_coast_km=0.0,
+        )
+        for cement_type in constants.SUPPORTED_CEMENT_TYPES:
+            for walling in WALLING_FEATURE_IDS:
+                mine = spec("M25", 300.0, 0.5, 30.0, cement_type=cement_type, walling=walling)
+                advised = service.recommend(coastal, "exposed", "beam", base=mine)
+                best = service._rules_score(coastal, advised)
+                for other_type in constants.SUPPORTED_CEMENT_TYPES:
+                    for other_wall in WALLING_FEATURE_IDS:
+                        candidate = replace(
+                            advised,
+                            concrete=replace(advised.concrete, cement_type=other_type),
+                            walling_material_id=other_wall,
+                        )
+                        assert service._rules_score(coastal, candidate) <= best, (mine, candidate)
 
     def test_advice_never_scores_below_the_users_specification(
         self, real_service: QualityScoringService

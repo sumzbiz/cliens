@@ -283,9 +283,9 @@ class QualityScoringService:
         Without ``base`` this is the climate-derived target alone. With it, the
         target only ever *raises* the user's specification: each numeric parameter
         moves just where it falls short (grade, cement content, cover up; w/c
-        down), admixtures are added and never removed, and a cement type or
-        walling material is swapped only if the alternative scores strictly better
-        under the rules — otherwise the user's own choice stands.
+        down), admixtures are added and never removed, and the cement type and
+        walling are the best-scoring combination under the rules — the user's own
+        choice wherever nothing scores higher.
 
         Built purely from the minimums, the advice told a user who had
         over-specified to downgrade: an M45 mix at 60 mm cover was "improved" to
@@ -322,19 +322,32 @@ class QualityScoringService:
             member=member,
         )
 
-        alternatives = (
-            replace(
-                upgraded,
-                concrete=replace(upgraded.concrete, cement_type=target_mix.cement_type),
-            ),
-            replace(upgraded, walling_material_id=target.walling_material_id),
-        )
-        for alternative in alternatives:
-            # Applied one at a time against the running best, so each swap has to
-            # earn its place on top of the previous one.
-            if self._rules_score(summary, alternative) > self._rules_score(summary, upgraded):
-                upgraded = alternative
-        return upgraded
+        # Cement type and walling are chosen together, from every combination,
+        # by the rules score. Only the user's choice and the reference table's
+        # first pick used to be compared, so the advice could name a walling that
+        # scored below another suitable one, and a later swap could undo an
+        # earlier one (a coastal OPC specification kept OPC although PSC scores
+        # higher there). Ties keep the user's own choice, then the table's pick.
+        walling_options = [item.id for item in self._knowledge_base.brick_suitability]
+        best = upgraded
+        best_key: tuple[float, bool, bool, bool, bool] | None = None
+        for cement_type in constants.SUPPORTED_CEMENT_TYPES:
+            for walling in walling_options:
+                candidate = replace(
+                    upgraded,
+                    concrete=replace(upgraded.concrete, cement_type=cement_type),
+                    walling_material_id=walling,
+                )
+                key = (
+                    self._rules_score(summary, candidate),
+                    cement_type == concrete.cement_type,
+                    walling == base.walling_material_id,
+                    cement_type == target_mix.cement_type,
+                    walling == target.walling_material_id,
+                )
+                if best_key is None or key > best_key:
+                    best, best_key = candidate, key
+        return best
 
     def _rules_score(self, summary: ClimateSummary, selection: MaterialSelection) -> float:
         """The rules-defined score alone, for comparing candidate specifications."""
